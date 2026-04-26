@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>magicpin AI Internship Challenge | Build Vera Better</title>
+    <meta
+      name="description"
+      content="Competition microsite for the magicpin AI Internship Challenge: build a merchant AI assistant that composes high-compulsion WhatsApp messages from four context layers."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="magicpin AI Internship Challenge">
+        <span class="brand-mark">m</span>
+        <span>magicpin AI Challenge</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#challenge">Challenge</a>
+        <a href="#rubric">Rubric</a>
+        <a href="#examples">Examples</a>
+        <a href="#submit">Submit</a>
+      </nav>
+      <a class="nav-cta" href="#apply">Apply soon</a>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <img class="hero-image" src="./assets/merchant-ai-hero.png" alt="Indian merchant reviewing AI-assisted customer messages on a phone and laptop" />
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+          <p class="eyebrow">AI internship competition</p>
+          <h1 id="hero-title">Build Vera better.</h1>
+          <p class="hero-copy">
+            Create a WhatsApp merchant AI assistant that can read business context, choose the right next move,
+            and write messages real merchants want to answer.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#challenge">See the challenge</a>
+            <a class="button secondary" href="#rubric">How judging works</a>
+          </div>
+        </div>
+        <div class="hero-panel" aria-label="Live Vera engagement scale">
+          <span class="panel-label">Live Vera scale, Apr 23-25</span>
+          <div class="panel-grid">
+            <strong>22.2k</strong>
+            <span>merchant engagements</span>
+            <strong>105k</strong>
+            <span>merchant messages</span>
+            <strong>50</strong>
+            <span>judge score points</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section live-section" aria-labelledby="live-title">
+        <div class="section-heading wide">
+          <p class="eyebrow">Live engagement benchmark</p>
+          <h2 id="live-title">The bar is real merchant attention.</h2>
+          <p>
+            Vera already speaks to thousands of merchants daily. The competition asks candidates to improve
+            the quality of those conversations, not merely generate more text.
+          </p>
+        </div>
+        <div class="live-table" role="table" aria-label="Vera live engagement numbers from April 23 to April 25, 2026">
+          <div class="table-row table-head" role="row">
+            <span role="columnheader">Metric</span>
+            <span role="columnheader">Apr 23</span>
+            <span role="columnheader">Apr 24</span>
+            <span role="columnheader">Apr 25</span>
+          </div>
+          <div class="table-row" role="row">
+            <span role="cell">Merchants engaged</span>
+            <strong role="cell">6,917</strong>
+            <strong role="cell">10,158</strong>
+            <strong role="cell">5,181</strong>
+          </div>
+          <div class="table-row" role="row">
+            <span role="cell">Merchant messages</span>
+            <strong role="cell">34,022</strong>
+            <strong role="cell">47,651</strong>
+            <strong role="cell">23,712</strong>
+          </div>
+          <div class="table-row" role="row">
+            <span role="cell">Avg messages per merchant</span>
+            <strong role="cell">4.9</strong>
+            <strong role="cell">4.7</strong>
+            <strong role="cell">4.6</strong>
+          </div>
+          <div class="table-row" role="row">
+            <span role="cell">Customer conversations</span>
+            <strong role="cell">720</strong>
+            <strong role="cell">707</strong>
+            <strong role="cell">681</strong>
+          </div>
+        </div>
+      </section>
+
+      <section id="challenge" class="section intro-section">
+        <div class="section-heading">
+          <p class="eyebrow">The task</p>
+          <h2>Compose the next WhatsApp message from four context layers.</h2>
+        </div>
+        <div class="intro-grid">
+          <article class="brief-card">
+            <h3>What candidates build</h3>
+            <p>
+              A deterministic <code>compose(category, merchant, trigger, customer?)</code> function that returns
+              the next message, CTA, send identity, suppression key, and rationale.
+            </p>
+          </article>
+          <article class="brief-card">
+            <h3>What Vera is</h3>
+            <p>
+              magicpin's merchant assistant for WhatsApp. It helps businesses improve Google profiles, launch
+              campaigns, answer customer questions, and act on growth opportunities.
+            </p>
+          </article>
+          <article class="brief-card">
+            <h3>What wins</h3>
+            <p>
+              High-specificity, category-correct, trigger-aware messages that make a merchant think:
+              "this is about my business, and replying is low effort."
+            </p>
+          </article>
+        </div>
+
+        <div class="context-board" aria-label="Four-context framework">
+          <div class="context-node">
+            <span>01</span>
+            <h3>Category</h3>
+            <p>Voice, offers, peer stats, seasonal beats, research digest, taboos.</p>
+          </div>
+          <div class="context-node">
+            <span>02</span>
+            <h3>Merchant</h3>
+            <p>Identity, performance, active offers, conversation history, signals.</p>
+          </div>
+          <div class="context-node">
+            <span>03</span>
+            <h3>Trigger</h3>
+            <p>The reason to message right now: research, recall, spike, dip, festival.</p>
+          </div>
+          <div class="context-node">
+            <span>04</span>
+            <h3>Customer</h3>
+            <p>Optional for send-as-merchant flows: relationship, consent, state, preference.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="rubric" class="section rubric-section">
+        <div class="section-heading wide">
+          <p class="eyebrow">How scoring works</p>
+          <h2>Judges reward decision quality, not just fluent copy.</h2>
+          <p>
+            Each submission is scored across five 0-10 dimensions. The best bots choose what matters,
+            ignore weak facts, avoid hallucination, and turn context into a reply-worthy message.
+          </p>
+        </div>
+
+        <div class="score-grid">
+          <article class="score-card selected">
+            <span class="score">10</span>
+            <h3>Decision quality</h3>
+            <p>
+              Can the bot choose the best context signal for the moment? A strong answer uses the trigger,
+              merchant state, and category constraints to decide the next move.
+            </p>
+          </article>
+          <article class="score-card">
+            <span class="score">10</span>
+            <h3>Specificity</h3>
+            <p>Concrete numbers, dates, local context, source citations, and real offers from the input.</p>
+          </article>
+          <article class="score-card">
+            <span class="score">10</span>
+            <h3>Category fit</h3>
+            <p>Dentists sound clinical. Salons sound visual and practical. Restaurants sound timely and local.</p>
+          </article>
+          <article class="score-card">
+            <span class="score">10</span>
+            <h3>Merchant fit</h3>
+            <p>Personalizes to the merchant's metrics, language, offer catalog, and past conversation behavior.</p>
+          </article>
+          <article class="score-card">
+            <span class="score">10</span>
+            <h3>Engagement compulsion</h3>
+            <p>Creates a clear reason to reply now using curiosity, loss aversion, proof, or low-effort action.</p>
+          </article>
+        </div>
+
+        <div class="explain-grid">
+          <article>
+            <h3>1. Decision quality</h3>
+            <p>
+              Decision quality is the difference between copying all available data and choosing the one fact
+              that should drive the message. If Dr. Meera has low CTR and a new dental digest item, the bot should
+              decide whether the strongest move is research value, performance recovery, or patient education.
+            </p>
+          </article>
+          <article>
+            <h3>2. Engagement</h3>
+            <p>
+              Engagement means the merchant is likely to respond, not just understand. Winning messages are short,
+              specific, and easy to answer. They often end with one low-friction ask: "Want me to draft it?"
+              or "Reply YES and I will set it up."
+            </p>
+          </article>
+          <article>
+            <h3>3. Bold high-compulsion messaging</h3>
+            <p>
+              Bold does not mean hype. It means a sharp hook: missed demand, a local peer benchmark, a useful
+              new insight, or a ready-made action. The message should create urgency without inventing facts.
+            </p>
+          </article>
+          <article>
+            <h3>4. Generic messages lose</h3>
+            <p>
+              "Boost your business with 20% off" could be sent to anyone. The judge penalizes that. "Your CTR is
+              2.1% vs 3.0% South Delhi peer median. Want me to test Dental Cleaning @ Rs 299?" is grounded.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="examples" class="section examples-section">
+        <div class="section-heading">
+          <p class="eyebrow">Message craft</p>
+          <h2>What good looks like.</h2>
+        </div>
+
+        <div class="comparison">
+          <article class="message-card weak">
+            <span class="tag">Generic</span>
+            <p>
+              Hi Doctor, we can help you increase sales with a special discount campaign. Would you like to run
+              an offer today?
+            </p>
+            <ul>
+              <li>No trigger</li>
+              <li>No merchant fact</li>
+              <li>No category voice</li>
+            </ul>
+          </article>
+
+          <article class="message-card strong">
+            <span class="tag">High compulsion</span>
+            <p>
+              Dr. Meera, your CTR is 2.1% vs 3.0% South Delhi peer median. You already have Dental Cleaning @ Rs 299.
+              Want me to draft a 160-char patient WhatsApp around it?
+            </p>
+            <ul>
+              <li>Specific benchmark</li>
+              <li>Real offer</li>
+              <li>Single CTA</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="patterns">
+          <div>
+            <h3>Compulsion levers</h3>
+            <p>
+              Use verifiable facts, loss aversion, social proof, curiosity, reciprocity, effort externalization,
+              and a single binary commitment.
+            </p>
+          </div>
+          <div>
+            <h3>Constraints</h3>
+            <p>
+              Respect the 24h WhatsApp session window, 320-character body cap, one primary CTA, no URLs, and
+              no fabricated claims.
+            </p>
+          </div>
+          <div>
+            <h3>Twist</h3>
+            <p>
+              After submission, judges inject fresh digest items, updated merchant performance, new triggers,
+              and customer contexts to test adaptability.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="dataset" class="section dataset-section">
+        <div class="section-heading wide">
+          <p class="eyebrow">Dataset</p>
+          <h2>Same base data for every participant.</h2>
+        </div>
+        <div class="dataset-shell">
+          <pre><code>dataset/
+categories/   5 verticals: dentists, salons, restaurants, gyms, pharmacies
+merchants/    50 merchant contexts, 10 per category
+customers/    200 customer profiles for customer-facing flows
+triggers/     100 events across research, recall, spikes, dips, festivals
+test_set/     30 canonical pairs for like-for-like judging</code></pre>
+          <div class="dataset-copy">
+            <h3>Submission artifacts</h3>
+            <p>
+              Submit <code>bot.py</code>, <code>submission.jsonl</code>, and a one-page <code>README.md</code>.
+              Optional multi-turn handling can be added in <code>conversation_handlers.py</code>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="submit" class="section timeline-section">
+        <div class="section-heading">
+          <p class="eyebrow">Competition path</p>
+          <h2>Build, submit, adapt, replay.</h2>
+        </div>
+        <ol class="timeline">
+          <li>
+            <span>01</span>
+            <h3>Build composer</h3>
+            <p>Implement deterministic message composition from structured JSON contexts.</p>
+          </li>
+          <li>
+            <span>02</span>
+            <h3>Generate 30 outputs</h3>
+            <p>Produce the canonical <code>submission.jsonl</code> for direct comparison.</p>
+          </li>
+          <li>
+            <span>03</span>
+            <h3>Survive context injection</h3>
+            <p>Judges add new facts after submission to test adaptability and hallucination control.</p>
+          </li>
+          <li>
+            <span>04</span>
+            <h3>Replay top bots</h3>
+            <p>Finalists handle simulated merchant replies, auto-replies, objections, and intent handoffs.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section id="apply" class="section apply-section">
+        <div>
+          <p class="eyebrow">Launch details</p>
+          <h2>Logistics to fill before launch.</h2>
+        </div>
+        <div class="logistics">
+          <div><span>Eligibility</span><strong>Placeholder</strong></div>
+          <div><span>Team size</span><strong>Solo or pairs</strong></div>
+          <div><span>Submission window</span><strong>Placeholder</strong></div>
+          <div><span>Prizes</span><strong>Placeholder</strong></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>magicpin AI Internship Challenge</span>
+      <a href="#top">Back to top</a>
+    </footer>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
