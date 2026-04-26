@@ -457,14 +457,46 @@ def active_offer(merchant: dict[str, Any], category: dict[str, Any] | None = Non
     return "your current offer"
 
 
-def find_digest_item(category: dict[str, Any], trigger: dict[str, Any]) -> dict[str, Any] | None:
-    item_id = (trigger.get("payload") or {}).get("top_item_id")
-    digest = category.get("digest", [])
-    if item_id:
-        for item in digest:
-            if item.get("id") == item_id:
+def referenced_context_item(category: dict[str, Any], trigger: dict[str, Any]) -> dict[str, Any] | None:
+    payload = trigger.get("payload") or {}
+    ref_ids = [
+        payload.get("top_item_id"),
+        payload.get("digest_item_id"),
+        payload.get("alert_id"),
+        payload.get("content_id"),
+        payload.get("item_id"),
+    ]
+    candidates: list[dict[str, Any]] = []
+    for key in ["digest", "patient_content_library", "trend_signals", "seasonal_beats"]:
+        values = category.get(key, [])
+        if isinstance(values, list):
+            candidates.extend(v for v in values if isinstance(v, dict))
+    for ref_id in [x for x in ref_ids if x]:
+        for item in candidates:
+            if item.get("id") == ref_id:
                 return item
-    return digest[0] if digest else None
+    return None
+
+
+def find_digest_item(category: dict[str, Any], trigger: dict[str, Any]) -> dict[str, Any] | None:
+    item = referenced_context_item(category, trigger)
+    if item:
+        return item
+    payload = trigger.get("payload") or {}
+    digest = [item for item in category.get("digest", []) if isinstance(item, dict)]
+    kind = trigger.get("kind", "")
+    if kind in {"research_digest", "cde_opportunity", "category_seasonal"} and digest:
+        desired = {
+            "research_digest": {"research", "trend", "tech"},
+            "cde_opportunity": {"cde"},
+            "category_seasonal": {"seasonal"},
+        }.get(kind, set())
+        for item in digest:
+            if item.get("kind") in desired:
+                return item
+    if any(payload.get(k) for k in ["title", "source", "summary", "actionable", "molecule", "affected_batches"]):
+        return payload
+    return None
 
 
 def pct(value: Any) -> str:
@@ -487,6 +519,78 @@ def cta_for(kind: str, customer: dict[str, Any] | None = None) -> str:
     if kind in {"research_digest", "cde_opportunity", "curious_ask_due"}:
         return "open_ended"
     return "binary"
+
+
+def payload_brief(payload: dict[str, Any], limit: int = 150) -> str:
+    if not payload:
+        return "the current trigger"
+    priority = [
+        "merchant_last_message",
+        "title",
+        "summary",
+        "actionable",
+        "match",
+        "festival",
+        "theme",
+        "intent_topic",
+        "molecule",
+        "metric",
+        "season",
+    ]
+    parts: list[str] = []
+    for key in priority:
+        value = payload.get(key)
+        if value:
+            parts.append(f"{key.replace('_', ' ')}: {format_value(value)}")
+    for key, value in payload.items():
+        if len(parts) >= 3:
+            break
+        if key in priority or key.endswith("_id") or key in {"category"}:
+            continue
+        if value not in (None, "", [], {}):
+            parts.append(f"{key.replace('_', ' ')}: {format_value(value)}")
+    return compact("; ".join(parts) or "the current trigger", limit)
+
+
+def format_value(value: Any) -> str:
+    if isinstance(value, float):
+        if -1 < value < 1:
+            return pct(value)
+        return str(value)
+    if isinstance(value, list):
+        return ", ".join(format_value(v) for v in value[:3])
+    if isinstance(value, dict):
+        if "label" in value:
+            return str(value["label"])
+        return ", ".join(f"{k}: {format_value(v)}" for k, v in list(value.items())[:3])
+    return money_safe(str(value).replace("_", " "))
+
+
+def audience_hint(merchant: dict[str, Any], customer: dict[str, Any] | None = None) -> str:
+    if customer:
+        return customer.get("identity", {}).get("name", "this customer")
+    aggregate = merchant.get("customer_aggregate", {})
+    if aggregate.get("high_risk_adult_count"):
+        return f"{aggregate['high_risk_adult_count']} high-risk adult patients"
+    if aggregate.get("lapsed_90d_plus"):
+        return f"{aggregate['lapsed_90d_plus']} lapsed customers"
+    if aggregate.get("lapsed_180d_plus"):
+        return f"{aggregate['lapsed_180d_plus']} lapsed customers"
+    if aggregate.get("delivery_orders_30d"):
+        return f"{aggregate['delivery_orders_30d']} recent delivery customers"
+    return "the most relevant customers"
+
+
+def next_step_for(kind: str) -> str:
+    if kind in {"supply_alert", "regulation_change"}:
+        return "verify the checklist"
+    if kind in {"active_planning_intent", "milestone_reached"}:
+        return "approve the plan"
+    if kind in {"perf_dip", "seasonal_perf_dip", "perf_spike", "review_theme_emerged"}:
+        return "send the recovery message"
+    if kind in {"renewal_due", "winback_eligible", "dormant_with_vera"}:
+        return "review the draft"
+    return "review the draft"
 
 
 def compose_message(
@@ -540,7 +644,11 @@ def compose_message(
     elif kind in {"regulation_change", "supply_alert"}:
         payload = trigger.get("payload", {})
         item = find_digest_item(category, trigger) or payload
-        title = item.get("title") or payload.get("title") or "new compliance update"
+        if kind == "supply_alert" and payload.get("molecule"):
+            batches = ", ".join(payload.get("affected_batches", [])[:2]) or "listed batches"
+            title = f"{payload.get('molecule')} batches {batches} need verification"
+        else:
+            title = item.get("title") or payload.get("title") or payload_brief(payload, 90)
         source = item.get("source") or payload.get("source") or "category alert"
         body = f"{owner}, {source}: {title}. Want me to draft a 3-step checklist for {name} so your team can verify it today?"
     elif kind in {"perf_dip", "seasonal_perf_dip"}:
@@ -559,7 +667,9 @@ def compose_message(
     elif kind in {"curious_ask_due", "dormant_with_vera"}:
         body = f"Quick check, {owner}: what service are customers asking about most this week at {name}? I'll turn your answer into a Google post + 4-line chat reply."
     elif kind in {"active_planning_intent", "milestone_reached"}:
-        body = f"{owner}, I can turn this into a ready plan for {name}: offer, audience, and 3-line outreach copy. Want the first draft now?"
+        payload = trigger.get("payload", {})
+        plan = payload.get("intent_topic") or payload.get("metric") or "this plan"
+        body = f"{owner}, I can turn {format_value(plan)} into a ready plan for {name}: {offer}, target audience, and 3-line outreach copy. Want the first draft now?"
     elif kind == "competitor_opened":
         payload = trigger.get("payload", {})
         distance = payload.get("distance_km") or payload.get("distance")
@@ -636,13 +746,17 @@ def classify_reply(message: str, history: list[dict[str, Any]]) -> str:
     msg = message.lower()
     if is_auto_reply(message, history):
         return "auto_reply"
-    if any(word in msg for word in ["yes", "ok", "go ahead", "let's do", "lets do", "send", "confirm", "please do", "haan", "chalega"]):
+    yes = any(word in msg for word in ["yes", "ok", "go ahead", "let's do", "lets do", "send", "confirm", "please do", "haan", "chalega", "do it"])
+    question = "?" in msg or any(word in msg for word in ["how", "what", "why", "kitna", "price", "cost", "look like"])
+    if yes and question:
+        return "yes_question"
+    if yes:
         return "intent_yes"
     if any(word in msg for word in ["not interested", "stop", "no thanks", "don't", "dont", "band", "unsubscribe"]):
         return "no"
     if any(word in msg for word in ["gst", "tax", "loan", "personal", "abuse", "idiot", "stupid"]):
         return "off_topic"
-    if "?" in msg or any(word in msg for word in ["how", "what", "why", "kitna", "price", "cost"]):
+    if question:
         return "question"
     return "neutral"
 
@@ -674,6 +788,13 @@ def reply_action(body: dict[str, Any]) -> dict[str, Any]:
             "cta": "binary",
             "rationale": "One polite attempt after likely auto-reply; asks for human confirmation.",
         }
+    if label == "yes_question":
+        return {
+            "action": "send",
+            "body": no_ansi(draft_preview(owner, merchant, category, trigger)),
+            "cta": "binary",
+            "rationale": "Merchant showed interest but asked for shape/details; previews the concrete plan before asking for confirmation.",
+        }
     if label == "intent_yes":
         if "confirm" in message.lower() or intent_count >= 2:
             return {
@@ -683,27 +804,11 @@ def reply_action(body: dict[str, Any]) -> dict[str, Any]:
                 "rationale": "Merchant confirmed the draft; produces the concrete final message instead of repeating the confirmation step.",
             }
         kind = trigger.get("kind", "request")
-        if kind == "research_digest":
-            item = find_digest_item(category, trigger) or {}
-            source = item.get("source", "the digest")
-            return {
-                "action": "send",
-                "body": no_ansi(compact(f"Done, {owner}. I’ll pull {source} and draft a patient chat around {active_offer(merchant, category)}. Next: reply CONFIRM after review.")),
-                "cta": "binary",
-                "rationale": "Explicit yes detected; advances the accepted research-digest task with concrete next step.",
-            }
-        if kind == "competitor_opened":
-            return {
-                "action": "send",
-                "body": no_ansi(compact(f"Done, {owner}. I’ll draft a response post using your strongest visible proof and {offer}. Next: reply CONFIRM after review.")),
-                "cta": "binary",
-                "rationale": "Explicit yes detected; routes competitor-response intent directly to action.",
-            }
         return {
             "action": "send",
-            "body": no_ansi(compact(f"Done, {owner}. I’ll prepare the draft using {offer} and the trigger context. Next: reply CONFIRM after review.")),
+            "body": no_ansi(draft_preview(owner, merchant, category, trigger)),
             "cta": "binary",
-            "rationale": "Explicit yes detected; switches to action instead of further qualification.",
+            "rationale": f"Explicit yes detected; previews the {kind} draft and asks for final confirmation.",
         }
     if label == "no":
         return {"action": "end", "rationale": "Merchant declined or opted out; ending the conversation."}
@@ -737,9 +842,16 @@ def final_confirmed_draft(
     if kind == "research_digest":
         item = find_digest_item(category, trigger) or {}
         source = item.get("source", "the latest dental digest")
+        action = item.get("actionable") or "a timely recall check"
         return compact(
-            f"Draft: Hi, {name} here. {source} supports a shorter recall check for high-risk adults. "
-            f"We’re offering {offer}. Reply 1 and we’ll help find a slot."
+            f"Draft: Hi, {name} here. {source} has a useful update: {action}. "
+            f"If this applies to you, reply 1 and we’ll help with {offer}."
+        )
+    if kind == "active_planning_intent":
+        topic = format_value(payload.get("intent_topic") or "weekday offer")
+        return compact(
+            f"Draft: Office lunch sorted near you - {name} has {offer} for teams. "
+            f"Best for {topic}. Reply with headcount and delivery time."
         )
     if kind == "competitor_opened":
         competitor = payload.get("competitor_name", "a nearby competitor")
@@ -754,19 +866,57 @@ def final_confirmed_draft(
         )
     if kind == "ipl_match_today":
         return compact(
-            f"Draft: Match night offer from {name}: {offer}. Order before {payload.get('match_time_iso', 'match time')} "
-            f"and we’ll prioritize prep for the rush."
+            f"Draft: {payload.get('match', 'Match')} night at {name}: {offer}. "
+            f"Order before the rush and we’ll prioritize prep."
         )
     if kind in {"supply_alert", "regulation_change"}:
+        item = find_digest_item(category, trigger) or {}
+        title = item.get("title") or payload_brief(payload, 80)
+        if payload.get("molecule") or payload.get("affected_batches"):
+            batches = ", ".join(payload.get("affected_batches", [])[:3]) or "listed batches"
+            title = f"{payload.get('molecule', 'item')} batches {batches}"
         return compact(
-            f"Draft checklist for {name}: 1) verify affected item/batches, 2) remove doubtful stock, "
+            f"Draft checklist for {name}: 1) verify {title}, 2) remove doubtful stock, "
             f"3) message impacted customers only with confirmed facts."
         )
+    if kind == "review_theme_emerged":
+        theme = format_value(payload.get("theme") or "the review issue")
+        return compact(f"Draft: Thanks for flagging {theme}. We’ve tightened the process and will personally track your next order/visit. Reply here if it slips again.")
+    if kind in {"perf_dip", "seasonal_perf_dip", "perf_spike"}:
+        metric = format_value(payload.get("metric") or "interest")
+        return compact(f"Draft: Quick update from {name}: {offer}. We’re keeping slots/orders tight this week, so reply YES and we’ll help you book today.")
     customer_id = trigger.get("customer_id")
     customer = contexts.get(("customer", customer_id), {}).get("payload") if customer_id else None
     if customer:
         return compose_customer_message(category, merchant, trigger, customer)
     return compact(f"Draft: {name} update - {offer}. Reply YES and we’ll help you with the next step today.")
+
+
+def draft_preview(
+    owner: str,
+    merchant: dict[str, Any],
+    category: dict[str, Any],
+    trigger: dict[str, Any],
+) -> str:
+    kind = trigger.get("kind", "")
+    offer = active_offer(merchant, category)
+    item = find_digest_item(category, trigger) or {}
+    context = payload_brief(trigger.get("payload") or {}, 95)
+    if kind in {"research_digest", "cde_opportunity"}:
+        source = item.get("source", "the referenced digest")
+        action = item.get("actionable") or context
+        return compact(f"Preview, {owner}: use {source}, mention {action}, then route interested customers to {offer}. Reply CONFIRM and I’ll output the exact customer message.")
+    if kind in {"supply_alert", "regulation_change"}:
+        return compact(f"Preview, {owner}: 1) state the verified alert, 2) list the exact item/batch/action, 3) tell staff what to check today. Reply CONFIRM for the checklist.")
+    if kind == "active_planning_intent":
+        return compact(f"Preview, {owner}: audience = nearby office admins, hook = reliable weekday lunch, offer = {offer}, copy = 3 short lines. Reply CONFIRM for the exact draft.")
+    if kind == "review_theme_emerged":
+        return compact(f"Preview, {owner}: acknowledge the review theme, fix the operational miss, then send a short recovery note using {offer}. Reply CONFIRM for copy.")
+    if kind in {"perf_dip", "seasonal_perf_dip", "perf_spike"}:
+        return compact(f"Preview, {owner}: use the recent performance signal, avoid panic discounting, and send one targeted message around {offer}. Reply CONFIRM for copy.")
+    if kind == "competitor_opened":
+        return compact(f"Preview, {owner}: do not match blindly; lead with your proof point, then {offer}. Reply CONFIRM for the response post.")
+    return compact(f"Preview, {owner}: I’ll use {context} with {offer}, keep it to one message and one CTA. Reply CONFIRM for the exact draft.")
 
 
 def contextual_question_reply(
@@ -785,6 +935,8 @@ def contextual_question_reply(
     if kind == "research_digest":
         item = find_digest_item(category, trigger) or {}
         return compact(f"{owner}, this is about using {item.get('source', 'the research digest')} to support a patient-facing chat around {offer}. No extra campaign cost is shown in the data. Want the draft?")
+    if kind == "active_planning_intent":
+        return compact(f"{owner}, no campaign spend is shown here. The price in the message is the customer-facing offer: {offer}. I can draft the office/team lunch copy from the planning context. Continue?")
     if kind in {"perf_dip", "seasonal_perf_dip"}:
         return compact(f"{owner}, this is not a paid-spend recommendation yet. It is a recovery message around {offer} because {payload.get('metric', 'performance')} moved recently. Want me to draft that first?")
     if kind == "ipl_match_today":
