@@ -40,99 +40,126 @@ INDEX_HTML = """<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vera Prototype Bot</title>
   <style>
-    :root{--green:#173f2f;--accent:#2d6a4f;--paper:#f7f5f0;--line:#e6e1d8;--muted:#66645f}
+    :root{--green:#173f2f;--accent:#2d6a4f;--paper:#f7f5f0;--line:#e6e1d8;--muted:#66645f;--chat:#efe7dc}
     body{font-family:Inter,system-ui,sans-serif;margin:0;background:var(--paper);color:#171717}
-    main{max-width:1040px;margin:0 auto;padding:34px 18px}
-    h1{font-size:42px;line-height:1;margin:0 0 12px}
-    h2{font-size:28px;margin:0 0 14px}
-    p{color:var(--muted);line-height:1.6}
+    main{max-width:1120px;margin:0 auto;padding:28px 18px}
+    h1{font-size:38px;line-height:1;margin:0 0 10px}
+    h2{font-size:24px;margin:0 0 12px}
+    p{color:var(--muted);line-height:1.55}
     button,select,input,textarea{font:inherit}
-    .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:22px;margin:16px 0}
-    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-    .row>*{min-height:44px}
-    button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 15px;font-weight:800;cursor:pointer}
+    button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:800;cursor:pointer}
     button.secondary{background:#edf3ef;color:var(--green);border:1px solid #c9ded5}
-    button.chip{background:#fff;color:var(--green);border:1px solid #cfc9bd;font-weight:750}
+    button.quick{background:#fff;color:var(--green);border:1px solid #cfc9bd;font-weight:750;padding:8px 11px}
     select,input,textarea{border:1px solid #d0ccc4;border-radius:8px;padding:10px;background:white}
-    select{min-width:min(100%,560px);flex:1}
-    input{min-width:min(100%,340px)}
-    textarea{width:100%;min-height:168px;box-sizing:border-box;line-height:1.45}
+    select{width:100%}
+    textarea{width:100%;min-height:160px;box-sizing:border-box;line-height:1.45}
     pre{white-space:pre-wrap;background:#102b21;color:#fff;border-radius:8px;padding:14px;overflow:auto}
     .muted{font-size:13px;color:var(--muted)}
-    .clean{background:#e8f0ee;border:1px solid #c9ded5;border-radius:8px;padding:18px;margin:10px 0 18px;color:#173f2f;font-size:21px;line-height:1.45;font-weight:720}
-    .label{font-size:12px;font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-top:18px;margin-bottom:8px}
-    .conversation{display:grid;grid-template-columns:1fr;gap:10px}
-    .bubble{border-radius:10px;padding:14px 16px;line-height:1.45;max-width:850px}
-    .bot{background:#e8f0ee;color:#173f2f;border:1px solid #c9ded5}
-    .merchant{background:#f8f6f1;color:#1d1d1d;border:1px solid #e4ded3;justify-self:end}
+    .shell{display:grid;grid-template-columns:minmax(320px,410px) 1fr;gap:18px;align-items:start;margin-top:18px}
+    .panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px}
+    .phone{background:#111;border-radius:24px;padding:10px;box-shadow:0 20px 55px rgba(23,63,47,.22)}
+    .screen{height:720px;max-height:calc(100vh - 80px);min-height:560px;background:var(--chat);border-radius:18px;overflow:hidden;display:grid;grid-template-rows:auto 1fr auto}
+    .chatHead{background:#173f2f;color:#fff;padding:14px 16px;display:flex;gap:12px;align-items:center}
+    .avatar{width:38px;height:38px;border-radius:50%;background:#e8f0ee;color:#173f2f;display:grid;place-items:center;font-weight:900}
+    .chatTitle{font-weight:900}
+    .status{font-size:12px;color:#cfe2d8;margin-top:2px}
+    .scenario{background:#fff;border-bottom:1px solid #ddd3c4;padding:12px}
+    .scenario .row{display:flex;gap:10px;margin-top:8px}
+    .scenario button{white-space:nowrap}
+    .messages{padding:18px 12px;overflow:auto;display:flex;flex-direction:column;gap:10px;background:
+      linear-gradient(rgba(239,231,220,.92),rgba(239,231,220,.92)),
+      radial-gradient(circle at 20% 15%,rgba(45,106,79,.10) 0 2px,transparent 3px)}
+    .bubble{border-radius:9px;padding:10px 12px;line-height:1.42;max-width:82%;box-shadow:0 1px 1px rgba(0,0,0,.08);font-size:15px}
+    .bot{align-self:flex-start;background:#fff;color:#171717;border-top-left-radius:2px}
+    .merchant{align-self:flex-end;background:#d9fdd3;color:#171717;border-top-right-radius:2px}
+    .meta{display:block;text-align:right;color:#777;font-size:10px;margin-top:5px}
+    .empty{margin:auto;text-align:center;color:#4d4a43;background:rgba(255,255,255,.7);padding:18px;border-radius:10px;max-width:270px}
+    .composer{background:#f5efe7;border-top:1px solid #ddd3c4;padding:10px;display:grid;gap:9px}
+    .quickRow{display:flex;gap:7px;overflow:auto;padding-bottom:2px}
+    .sendRow{display:grid;grid-template-columns:1fr auto;gap:8px}
+    .sendRow input{min-width:0;border-radius:999px;padding:11px 14px}
+    .sendRow button{border-radius:999px;min-width:58px}
+    .judge{display:grid;gap:14px}
+    .label{font-size:12px;font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px}
     details{margin-top:12px}
     summary{cursor:pointer;color:var(--accent);font-weight:900}
     code{background:#f2eee6;border-radius:4px;padding:1px 5px}
-    .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    @media(max-width:760px){h1{font-size:34px}.two{grid-template-columns:1fr}.clean{font-size:18px}}
+    @media(max-width:880px){.shell{grid-template-columns:1fr}.screen{height:680px;max-height:none}h1{font-size:32px}}
   </style>
 </head>
 <body>
   <main>
     <h1>Vera Prototype Bot</h1>
-    <p>This URL exposes the same HTTP contract candidates will implement, plus a cleaner demo surface for judging message quality. Pick a scenario, generate the assistant's first message, send a merchant reply, then copy the transcript into the judging chat.</p>
-    <div class="card">
-      <h2>1. Pick a scenario</h2>
-      <div class="row">
-        <select id="trigger"></select>
-        <button onclick="tick()">Generate bot message</button>
-      </div>
-      <div class="label">Assistant message</div>
-      <div id="tickClean" class="clean">Pick a scenario and generate a bot message.</div>
-      <details>
-        <summary>Raw /v1/tick JSON</summary>
-        <pre id="tickOut">Loading triggers...</pre>
-      </details>
-    </div>
-    <div class="card">
-      <h2>2. Send a merchant reply</h2>
-      <p class="muted">Use one of the examples or type your own reply. The conversation ID is filled automatically from the generated message.</p>
-      <div class="row" style="margin-bottom:12px">
-        <button class="chip" onclick="setMerchantReply('Yes please send it')">Interested</button>
-        <button class="chip" onclick="setMerchantReply('Thank you for contacting us. We will get back to you soon.')">Auto-reply</button>
-        <button class="chip" onclick="setMerchantReply('How much will this cost?')">Pricing ask</button>
-        <button class="chip" onclick="setMerchantReply('Can you also help me file GST?')">Off-topic</button>
-        <button class="chip" onclick="setMerchantReply('Not interested')">Decline</button>
-      </div>
-      <div class="row">
-        <input id="conv" placeholder="conversation ID will appear here" readonly />
-        <input id="msg" placeholder="merchant reply" value="Yes please send it" />
-        <button onclick="reply()">Send merchant reply</button>
-      </div>
-      <div class="label">Assistant reply</div>
-      <div id="replyClean" class="clean">Generate a bot message first, then send a merchant reply.</div>
-      <details>
-        <summary>Raw /v1/reply JSON</summary>
-        <pre id="replyOut"></pre>
-      </details>
-    </div>
-    <div class="card">
-      <h2>3. Copy judge transcript</h2>
-      <p class="muted">Paste this into the judging chat to score decision quality, engagement, compulsion, adaptation, and constraint discipline.</p>
-      <textarea id="transcript" readonly>Generate a bot message to build the transcript.</textarea>
-      <div class="row" style="margin-top:12px">
-        <button onclick="copyTranscript()">Copy transcript</button>
-        <button class="secondary" onclick="resetDemo()">Reset page</button>
-      </div>
-    </div>
-    <div class="card">
-      <h2>Contract endpoints</h2>
-      <pre>GET  /v1/healthz
+    <p>Test the candidate experience as a chat, not as raw API calls. Select a scenario, start the assistant, reply like a merchant, then export the transcript for judging.</p>
+    <div class="shell">
+      <section class="phone" aria-label="Chat demo">
+        <div class="screen">
+          <div class="chatHead">
+            <div class="avatar">V</div>
+            <div>
+              <div class="chatTitle">Vera assistant</div>
+              <div class="status" id="status">Ready for scenario</div>
+            </div>
+          </div>
+          <div class="scenario">
+            <div class="label">Scenario</div>
+            <select id="trigger"></select>
+            <div class="row">
+              <button onclick="tick()">Start chat</button>
+              <button class="secondary" onclick="resetDemo()">Reset</button>
+            </div>
+          </div>
+          <div id="messages" class="messages">
+            <div class="empty">Pick a scenario and press Start chat. The bot's first message will appear here.</div>
+          </div>
+          <div class="composer">
+            <div class="quickRow">
+              <button class="quick" onclick="sendQuick('Yes please send it')">Interested</button>
+              <button class="quick" onclick="sendQuick('Thank you for contacting us. We will get back to you soon.')">Auto-reply</button>
+              <button class="quick" onclick="sendQuick('How much will this cost?')">Pricing</button>
+              <button class="quick" onclick="sendQuick('Can you also help me file GST?')">Off-topic</button>
+              <button class="quick" onclick="sendQuick('Not interested')">Decline</button>
+            </div>
+            <div class="sendRow">
+              <input id="msg" placeholder="Type merchant reply" value="Yes please send it" onkeydown="if(event.key==='Enter') reply()" />
+              <button onclick="reply()">Send</button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <aside class="judge">
+        <div class="panel">
+          <h2>Judge packet</h2>
+          <p class="muted">Paste this into the judging chat when you want a score. It updates as the conversation changes.</p>
+          <textarea id="transcript" readonly>Start a chat to build the transcript.</textarea>
+          <div style="margin-top:12px">
+            <button onclick="copyTranscript()">Copy judge packet</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Contract endpoints</h2>
+          <pre>GET  /v1/healthz
 GET  /v1/metadata
 POST /v1/context
 POST /v1/tick
 POST /v1/reply</pre>
+          <details>
+            <summary>Raw /v1/tick JSON</summary>
+            <pre id="tickOut">Loading triggers...</pre>
+          </details>
+          <details>
+            <summary>Raw /v1/reply JSON</summary>
+            <pre id="replyOut"></pre>
+          </details>
+        </div>
+      </div>
     </div>
   </main>
   <script>
     let lastAction = null;
     let lastReply = null;
     let triggerMap = {};
+    let chatMessages = [];
 
     function escapeHtml(value){
       return String(value || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -150,46 +177,74 @@ POST /v1/reply</pre>
       document.getElementById('tickOut').textContent = JSON.stringify(data, null, 2);
       updateTranscript();
     }
+    function setStatus(text){
+      document.getElementById('status').textContent = text;
+    }
+    function renderChat(){
+      const box = document.getElementById('messages');
+      if(!chatMessages.length){
+        box.innerHTML = '<div class="empty">Pick a scenario and press Start chat. The bot\\'s first message will appear here.</div>';
+        return;
+      }
+      box.innerHTML = chatMessages.map(m => `
+        <div class="bubble ${m.role}">
+          ${escapeHtml(m.text)}
+          <span class="meta">${m.role === 'bot' ? 'Vera' : 'Merchant'} · now</span>
+        </div>
+      `).join('');
+      box.scrollTop = box.scrollHeight;
+    }
     async function tick(){
       const id = document.getElementById('trigger').value;
       lastAction = null;
       lastReply = null;
+      chatMessages = [];
+      renderChat();
       document.getElementById('replyOut').textContent = '';
-      document.getElementById('replyClean').textContent = 'Now send a merchant reply.';
+      setStatus('Generating first message...');
       const res = await fetch('/demo/tick', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({available_triggers:[id], force:true})});
       const data = await res.json();
       document.getElementById('tickOut').textContent = JSON.stringify(data, null, 2);
       if(data.actions && data.actions[0]) {
         lastAction = data.actions[0];
-        document.getElementById('conv').value = lastAction.conversation_id;
-        document.getElementById('tickClean').textContent = lastAction.body;
+        chatMessages.push({role:'bot', text:lastAction.body});
+        setStatus('Waiting for merchant reply');
       } else {
-        document.getElementById('tickClean').textContent = 'No message sent for this trigger.';
-        document.getElementById('conv').value = '';
+        chatMessages.push({role:'bot', text:'No message sent for this trigger.'});
+        setStatus('No action');
       }
+      renderChat();
       updateTranscript();
     }
-    function setMerchantReply(text){
+    function sendQuick(text){
       document.getElementById('msg').value = text;
+      reply();
     }
     async function reply(){
-      if(!document.getElementById('conv').value){
-        document.getElementById('replyClean').textContent = 'Generate a bot message first so the conversation ID is available.';
+      if(!lastAction){
+        setStatus('Start a scenario first');
         return;
       }
+      const merchantText = document.getElementById('msg').value.trim();
+      if(!merchantText) return;
+      chatMessages.push({role:'merchant', text:merchantText});
+      renderChat();
+      setStatus('Vera is replying...');
       const res = await fetch('/demo/reply', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
-        conversation_id: document.getElementById('conv').value,
+        conversation_id: lastAction.conversation_id,
         merchant_id: null,
         customer_id: null,
         from_role: 'merchant',
-        message: document.getElementById('msg').value,
+        message: merchantText,
         received_at: new Date().toISOString(),
-        turn_number: 2
+        turn_number: chatMessages.length
       })});
       const data = await res.json();
       lastReply = data;
       document.getElementById('replyOut').textContent = JSON.stringify(data, null, 2);
-      document.getElementById('replyClean').textContent = data.body || `Action: ${data.action}`;
+      chatMessages.push({role:'bot', text:data.body || `Action: ${data.action}`});
+      renderChat();
+      setStatus(data.action === 'end' ? 'Conversation ended' : 'Waiting for merchant reply');
       updateTranscript();
     }
     function updateTranscript(){
@@ -224,11 +279,11 @@ POST /v1/reply</pre>
     function resetDemo(){
       lastAction = null;
       lastReply = null;
-      document.getElementById('conv').value = '';
+      chatMessages = [];
       document.getElementById('msg').value = 'Yes please send it';
-      document.getElementById('tickClean').textContent = 'Pick a scenario and generate a bot message.';
-      document.getElementById('replyClean').textContent = 'Generate a bot message first, then send a merchant reply.';
       document.getElementById('replyOut').textContent = '';
+      setStatus('Ready for scenario');
+      renderChat();
       updateTranscript();
     }
     document.addEventListener('input', event => {
