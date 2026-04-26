@@ -62,9 +62,13 @@ INDEX_HTML = """<!doctype html>
     .panel{background:#fff;border-left:1px solid var(--line);padding:18px;overflow:auto}
     .leftbar{background:#f8f6f1;border-right:1px solid var(--line);display:grid;grid-template-rows:auto 1fr;min-height:0}
     .leftTop{padding:18px;border-bottom:1px solid var(--line)}
+    .scenarioBrief{margin-top:12px;background:#fff;border:1px solid #e5ded2;border-radius:8px;padding:12px}
+    .scenarioTitle{font-weight:900;color:#173f2f;margin-bottom:6px}
+    .contextLine{font-size:13px;color:#555;margin-top:4px}
     .scenarioList{overflow:auto;padding:10px}
     .scenarioItem{width:100%;text-align:left;background:#fff;color:#171717;border:1px solid #e5ded2;border-radius:8px;padding:12px;margin-bottom:8px;font-weight:750}
     .scenarioItem.active{border-color:#2d6a4f;background:#e8f0ee;color:#173f2f}
+    .scenarioItem span{display:block;margin-top:4px;font-size:12px;color:#666;font-weight:650;line-height:1.35}
     .chatArea{min-height:0;background:var(--chat);display:grid;grid-template-rows:auto 1fr auto}
     .chatHead{background:#173f2f;color:#fff;padding:14px 16px;display:flex;gap:12px;align-items:center}
     .avatar{width:38px;height:38px;border-radius:50%;background:#e8f0ee;color:#173f2f;display:grid;place-items:center;font-weight:900}
@@ -107,6 +111,7 @@ INDEX_HTML = """<!doctype html>
           <h2>Scenarios</h2>
           <p class="muted">Choose one test trigger, then start the chat.</p>
           <select id="trigger"></select>
+          <div id="scenarioBrief" class="scenarioBrief"></div>
           <div style="display:flex;gap:10px;margin-top:10px">
             <button onclick="tick()">Start chat</button>
             <button class="secondary" onclick="resetDemo()">Reset</button>
@@ -134,7 +139,7 @@ INDEX_HTML = """<!doctype html>
             <button class="quick" onclick="sendQuick('Not interested')">Decline</button>
           </div>
           <div class="sendRow">
-            <input id="msg" placeholder="Type merchant reply" value="Yes please send it" onkeydown="if(event.key==='Enter') reply()" />
+            <input id="msg" placeholder="Reply as the merchant" value="" onkeydown="if(event.key==='Enter') reply()" />
             <button onclick="reply()">Send</button>
           </div>
         </div>
@@ -177,8 +182,7 @@ POST /v1/reply</pre>
       return String(value || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
     function triggerLabel(t){
-      const merchant = t.merchant_id ? t.merchant_id.replace(/^m_\\d+_/, '').replaceAll('_', ' ') : 'unknown merchant';
-      return `${t.id} | ${t.kind || 'trigger'} | ${merchant}`;
+      return `${t.title || t.kind || 'Scenario'} | ${t.merchant_name || t.merchant_id || 'merchant'}`;
     }
     async function loadTriggers(){
       const res = await fetch('/demo/triggers');
@@ -188,8 +192,8 @@ POST /v1/reply</pre>
       select.innerHTML = data.triggers.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(triggerLabel(t))}</option>`).join('');
       document.getElementById('scenarioList').innerHTML = data.triggers.slice(0, 30).map(t => `
         <button class="scenarioItem" data-trigger="${escapeHtml(t.id)}" onclick="selectScenario('${escapeHtml(t.id)}')">
-          ${escapeHtml(t.kind || 'trigger')}<br>
-          <span class="muted">${escapeHtml((t.merchant_id || '').replace(/^m_\\d+_/, '').replaceAll('_', ' '))}</span>
+          ${escapeHtml(t.title || t.kind || 'Scenario')}
+          <span>${escapeHtml(t.subtitle || t.summary || '')}</span>
         </button>
       `).join('');
       select.addEventListener('change', () => selectScenario(select.value, false));
@@ -202,7 +206,18 @@ POST /v1/reply</pre>
       document.querySelectorAll('.scenarioItem').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.trigger === id);
       });
+      renderScenarioBrief();
       updateTranscript();
+    }
+    function renderScenarioBrief(){
+      const selected = triggerMap[document.getElementById('trigger').value] || {};
+      document.getElementById('scenarioBrief').innerHTML = `
+        <div class="scenarioTitle">${escapeHtml(selected.title || 'Select a scenario')}</div>
+        <div class="contextLine">${escapeHtml(selected.summary || 'This will show the merchant situation before the chat starts.')}</div>
+        <div class="contextLine"><strong>Merchant:</strong> ${escapeHtml(selected.merchant_name || 'unknown')}</div>
+        <div class="contextLine"><strong>Category:</strong> ${escapeHtml(selected.category || 'unknown')} ${selected.customer_name ? `· <strong>Customer:</strong> ${escapeHtml(selected.customer_name)}` : ''}</div>
+        <div class="contextLine"><strong>Trigger:</strong> ${escapeHtml(selected.kind || 'unknown')} · urgency ${escapeHtml(selected.urgency || '-')}</div>
+      `;
     }
     function setStatus(text){
       document.getElementById('status').textContent = text;
@@ -280,8 +295,11 @@ POST /v1/reply</pre>
       const lines = [
         'Judge this prototype bot response using the 50-point challenge rubric.',
         '',
-        `Scenario: ${selected.id || 'not selected'} (${selected.kind || 'unknown'})`,
-        `Merchant ID: ${selected.merchant_id || 'unknown'}`,
+        `Scenario: ${selected.title || selected.id || 'not selected'} (${selected.kind || 'unknown'})`,
+        `Situation: ${selected.summary || 'unknown'}`,
+        `Merchant: ${selected.merchant_name || selected.merchant_id || 'unknown'}`,
+        `Category: ${selected.category || 'unknown'}`,
+        `Customer: ${selected.customer_name || 'none'}`,
         '',
         'Initial bot message:',
         lastAction ? lastAction.body : '[not generated yet]',
@@ -307,7 +325,7 @@ POST /v1/reply</pre>
       lastAction = null;
       lastReply = null;
       chatMessages = [];
-      document.getElementById('msg').value = 'Yes please send it';
+      document.getElementById('msg').value = '';
       document.getElementById('replyOut').textContent = '';
       setStatus('Ready for scenario');
       renderChat();
@@ -691,11 +709,135 @@ def reply_action(body: dict[str, Any]) -> dict[str, Any]:
     if label == "question":
         return {
             "action": "send",
-            "body": "Fair question. I’ll keep it specific: one message, one offer, one next step, and no made-up claims. Want the draft?",
+            "body": no_ansi(contextual_question_reply(owner, merchant, category, trigger)),
             "cta": "binary",
-            "rationale": "Answers uncertainty and advances to a concrete next step.",
+            "rationale": "Answers the question using the active trigger and merchant context before advancing.",
         }
     return {"action": "wait", "wait_seconds": 900, "rationale": "Reply was ambiguous; waiting rather than spamming."}
+
+
+def contextual_question_reply(
+    owner: str,
+    merchant: dict[str, Any],
+    category: dict[str, Any],
+    trigger: dict[str, Any],
+) -> str:
+    kind = trigger.get("kind", "")
+    payload = trigger.get("payload", {})
+    offer = active_offer(merchant, category)
+    if kind == "renewal_due":
+        return compact(f"{owner}, the renewal shown here is Rs {payload.get('renewal_amount', '?')} for the {payload.get('plan', 'current')} plan, due in {payload.get('days_remaining', '?')} days. Want me to draft the renewal message?")
+    if kind == "competitor_opened":
+        return compact(f"{owner}, the competitor is using {money_safe(payload.get('their_offer', 'a lower offer'))}. I’d avoid matching blindly; we can counter with {offer} plus your proof. Draft it?")
+    if kind == "research_digest":
+        item = find_digest_item(category, trigger) or {}
+        return compact(f"{owner}, this is about using {item.get('source', 'the research digest')} to support a patient-facing chat around {offer}. No extra campaign cost is shown in the data. Want the draft?")
+    if kind in {"perf_dip", "seasonal_perf_dip"}:
+        return compact(f"{owner}, this is not a paid-spend recommendation yet. It is a recovery message around {offer} because {payload.get('metric', 'performance')} moved recently. Want me to draft that first?")
+    if kind == "ipl_match_today":
+        return compact(f"{owner}, this is about {payload.get('match', 'today’s match')} near {payload.get('venue', 'your locality')}. The current offer is {offer}; I can draft a match-day version without inventing discounts. Continue?")
+    if kind == "supply_alert":
+        batches = ", ".join(payload.get("affected_batches", [])[:2]) or "the affected batches"
+        return compact(f"{owner}, this is about checking {payload.get('molecule', 'the item')} batches {batches}, not a promotion. I can draft a safe staff workflow message. Want that?")
+    if kind == "chronic_refill_due":
+        meds = ", ".join(payload.get("molecule_list", [])[:3]) or "the monthly medicines"
+        return compact(f"{owner}, this is a refill reminder for {meds}; delivery address is already saved. I can draft a confirmation message, not add new medical claims. Continue?")
+    return compact(f"{owner}, this is about {readable_kind(kind).lower()} for {merchant_label(merchant)}. The relevant offer/context is {offer}. Want me to draft the next message?")
+
+
+def readable_kind(kind: str) -> str:
+    return (kind or "trigger").replace("_", " ").title()
+
+
+def merchant_label(merchant: dict[str, Any] | None) -> str:
+    if not merchant:
+        return "Unknown merchant"
+    identity = merchant.get("identity", {})
+    name = identity.get("name") or merchant.get("merchant_id") or "Merchant"
+    locality = identity.get("locality")
+    city = identity.get("city")
+    location = ", ".join(x for x in [locality, city] if x)
+    return f"{name} ({location})" if location else name
+
+
+def customer_label(customer: dict[str, Any] | None) -> str | None:
+    if not customer:
+        return None
+    return customer.get("identity", {}).get("name") or customer.get("customer_id")
+
+
+def demo_trigger_summary(trigger_id: str, trigger: dict[str, Any]) -> dict[str, Any]:
+    kind = trigger.get("kind", "trigger")
+    payload = trigger.get("payload", {})
+    merchant_id = trigger.get("merchant_id")
+    customer_id = trigger.get("customer_id")
+    merchant = contexts.get(("merchant", merchant_id), {}).get("payload") if merchant_id else None
+    customer = contexts.get(("customer", customer_id), {}).get("payload") if customer_id else None
+    identity = merchant.get("identity", {}) if merchant else {}
+    category = merchant.get("category_slug") if merchant else payload.get("category")
+    merchant_name = merchant_label(merchant)
+    customer_name = customer_label(customer)
+    active = active_offer(merchant or {}, contexts.get(("category", category), {}).get("payload", {}))
+
+    title = readable_kind(kind)
+    summary = f"{merchant_name} has a {readable_kind(kind).lower()} trigger."
+    if kind == "research_digest":
+        title = "Research digest for dentist"
+        summary = f"{identity.get('owner_first_name', 'The owner')} can use a new clinical digest item for {merchant.get('customer_aggregate', {}).get('high_risk_adult_count', 'their')} high-risk adult patients."
+    elif kind == "regulation_change":
+        title = "Compliance deadline"
+        summary = f"A regulation update has a deadline on {payload.get('deadline_iso', 'record')}; turn it into a practical action."
+    elif kind == "recall_due":
+        title = "Customer recall due"
+        summary = f"{customer_name or 'A customer'} is due for {payload.get('service_due', 'a recall').replace('_', ' ')}; available slots are already known."
+    elif kind == "perf_dip":
+        title = "Performance dip"
+        summary = f"{payload.get('metric', 'Performance').title()} is down {abs(int(float(payload.get('delta_pct', 0)) * 100))}% over {payload.get('window', 'recent window')}; propose a concrete recovery action."
+    elif kind == "renewal_due":
+        title = "Renewal due soon"
+        summary = f"{payload.get('plan', 'Plan')} renewal is due in {payload.get('days_remaining', '?')} days for Rs {payload.get('renewal_amount', '?')}."
+    elif kind == "festival_upcoming":
+        title = f"{payload.get('festival', 'Festival')} planning"
+        summary = f"{payload.get('festival', 'A festival')} is upcoming; find a category-relevant angle without fake urgency."
+    elif kind == "wedding_package_followup":
+        title = "Bridal follow-up"
+        summary = f"{customer_name or 'A bridal lead'} completed a trial; wedding date is {payload.get('wedding_date', 'record')}."
+    elif kind == "ipl_match_today":
+        title = "IPL match day"
+        summary = f"{payload.get('match', 'An IPL match')} at {payload.get('venue', 'local venue')}; decide whether to pitch a match-day message."
+    elif kind == "active_planning_intent":
+        title = "Active planning intent"
+        summary = f"Merchant already asked: {payload.get('merchant_last_message', 'what should it look like')}"
+    elif kind == "supply_alert":
+        title = "Pharmacy supply alert"
+        summary = f"{payload.get('molecule', 'A medicine')} has affected batches {', '.join(payload.get('affected_batches', [])[:2])}; avoid medical overreach."
+    elif kind == "chronic_refill_due":
+        title = "Chronic refill due"
+        summary = f"{customer_name or 'A patient'} runs out on {payload.get('stock_runs_out_iso', 'record')}; saved delivery address is available."
+    elif kind == "competitor_opened":
+        title = "Nearby competitor opened"
+        summary = f"{payload.get('competitor_name', 'A competitor')} opened {payload.get('distance_km', '?')} km away with {money_safe(payload.get('their_offer', 'an offer'))}."
+    elif kind == "customer_lapsed_hard":
+        title = "Customer winback"
+        summary = f"{customer_name or 'A customer'} has not visited for {payload.get('days_since_last_visit', '?')} days; draft a no-shame return message."
+
+    subtitle = " | ".join(x for x in [merchant_name, category, f"customer: {customer_name}" if customer_name else None, f"offer/context: {active}" if active else None] if x)
+    return {
+        "id": trigger_id,
+        "title": title,
+        "summary": compact(summary, 220),
+        "subtitle": subtitle,
+        "kind": kind,
+        "scope": trigger.get("scope"),
+        "source": trigger.get("source"),
+        "urgency": trigger.get("urgency"),
+        "merchant_id": merchant_id,
+        "merchant_name": merchant_name,
+        "category": category,
+        "customer_id": customer_id,
+        "customer_name": customer_name,
+        "active_offer": active,
+    }
 
 
 def auth_ok(headers: Any) -> bool:
@@ -742,7 +884,7 @@ class Handler(BaseHTTPRequestHandler):
             for (_, context_id), item in contexts.items():
                 payload = item.get("payload", {})
                 if payload.get("id") == context_id:
-                    triggers.append({"id": context_id, "kind": payload.get("kind"), "merchant_id": payload.get("merchant_id")})
+                    triggers.append(demo_trigger_summary(context_id, payload))
             triggers.sort(key=lambda t: t["id"])
             self.send_json(200, {"count": len(triggers), "triggers": triggers[:100]})
             return
