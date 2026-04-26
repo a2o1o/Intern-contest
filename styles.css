@@ -224,42 +224,6 @@ p {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.hero-panel {
-  width: min(560px, calc(100vw - 2.4rem));
-  margin: 8vh 0 0 auto;
-  padding: 1rem;
-  border: 1px solid rgba(232, 244, 238, 0.22);
-  border-radius: 8px;
-  background: rgba(27, 67, 50, 0.7);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(16px);
-}
-
-.panel-label {
-  display: block;
-  margin-bottom: 0.9rem;
-  color: rgba(255, 255, 255, 0.68);
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.panel-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem 1rem;
-}
-
-.panel-grid strong {
-  font-size: clamp(1.45rem, 4vw, 2.25rem);
-}
-
-.panel-grid span {
-  grid-row: 2;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.86rem;
-}
-
 .section {
   padding: clamp(4rem, 8vw, 7rem) clamp(1.2rem, 5vw, 5rem);
 }
@@ -880,7 +844,6 @@ pre code {
     background: linear-gradient(180deg, rgba(8, 13, 16, 0.22), rgba(8, 13, 16, 0.88));
   }
 
-  .panel-grid,
   .intro-grid,
   .context-board,
   .score-grid,
@@ -902,10 +865,6 @@ pre code {
   .apply-section,
   .logistics {
     grid-template-columns: 1fr;
-  }
-
-  .panel-grid span {
-    grid-row: auto;
   }
 
   .context-node,
