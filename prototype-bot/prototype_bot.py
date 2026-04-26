@@ -352,7 +352,7 @@ def compact(text: str, limit: int = 320) -> str:
 
 
 def no_ansi(text: str) -> str:
-    return text.replace("—", "-").replace("’", "'").replace("“", '"').replace("”", '"')
+    return text.replace("—", "-").replace("’", "'").replace("“", '"').replace("”", '"').replace("…", "...")
 
 
 def load_preload_dir(root: str) -> None:
@@ -439,11 +439,7 @@ def first_name(merchant: dict[str, Any]) -> str:
 
 
 def salutation(merchant: dict[str, Any], category: dict[str, Any] | None = None) -> str:
-    first = first_name(merchant)
-    slug = (category or {}).get("slug") or merchant.get("category_slug", "")
-    if slug == "dentists" and not first.lower().startswith("dr"):
-        return f"Dr. {first}"
-    return first
+    return first_name(merchant)
 
 
 def active_offer(merchant: dict[str, Any], category: dict[str, Any] | None = None) -> str:
@@ -452,7 +448,7 @@ def active_offer(merchant: dict[str, Any], category: dict[str, Any] | None = Non
             return money_safe(offer.get("title", "your current offer"))
     if category:
         for offer in category.get("offer_catalog", []):
-            if offer.get("type") in {"service_at_price", "membership", "free_service"}:
+            if offer.get("title"):
                 return money_safe(offer.get("title", "your current offer"))
     return "your current offer"
 
@@ -483,17 +479,6 @@ def find_digest_item(category: dict[str, Any], trigger: dict[str, Any]) -> dict[
     if item:
         return item
     payload = trigger.get("payload") or {}
-    digest = [item for item in category.get("digest", []) if isinstance(item, dict)]
-    kind = trigger.get("kind", "")
-    if kind in {"research_digest", "cde_opportunity", "category_seasonal"} and digest:
-        desired = {
-            "research_digest": {"research", "trend", "tech"},
-            "cde_opportunity": {"cde"},
-            "category_seasonal": {"seasonal"},
-        }.get(kind, set())
-        for item in digest:
-            if item.get("kind") in desired:
-                return item
     if any(payload.get(k) for k in ["title", "source", "summary", "actionable", "molecule", "affected_batches"]):
         return payload
     return None
@@ -514,10 +499,6 @@ def pct1(value: Any) -> str:
 
 
 def cta_for(kind: str, customer: dict[str, Any] | None = None) -> str:
-    if customer:
-        return "binary"
-    if kind in {"research_digest", "cde_opportunity", "curious_ask_due"}:
-        return "open_ended"
     return "binary"
 
 
@@ -541,15 +522,35 @@ def payload_brief(payload: dict[str, Any], limit: int = 150) -> str:
     for key in priority:
         value = payload.get(key)
         if value:
-            parts.append(f"{key.replace('_', ' ')}: {format_value(value)}")
+            parts.append(f"{human_key(key)}: {format_value(value)}")
     for key, value in payload.items():
         if len(parts) >= 3:
             break
         if key in priority or key.endswith("_id") or key in {"category"}:
             continue
         if value not in (None, "", [], {}):
-            parts.append(f"{key.replace('_', ' ')}: {format_value(value)}")
+            parts.append(f"{human_key(key)}: {format_value(value)}")
     return compact("; ".join(parts) or "the current trigger", limit)
+
+
+def human_key(key: str) -> str:
+    labels = {
+        "merchant_last_message": "merchant said",
+        "intent_topic": "plan",
+        "affected_batches": "affected batches",
+        "deadline_iso": "deadline",
+        "distance_km": "distance",
+        "their_offer": "competitor offer",
+        "stock_runs_out_iso": "runs out",
+    }
+    return labels.get(key, key.replace("_", " "))
+
+
+def source_label(source: Any) -> str:
+    value = str(source or "").strip()
+    if value.lower() in {"internal", "external", ""}:
+        return "provided business context"
+    return value
 
 
 def format_value(value: Any) -> str:
@@ -582,14 +583,6 @@ def audience_hint(merchant: dict[str, Any], customer: dict[str, Any] | None = No
 
 
 def next_step_for(kind: str) -> str:
-    if kind in {"supply_alert", "regulation_change"}:
-        return "verify the checklist"
-    if kind in {"active_planning_intent", "milestone_reached"}:
-        return "approve the plan"
-    if kind in {"perf_dip", "seasonal_perf_dip", "perf_spike", "review_theme_emerged"}:
-        return "send the recovery message"
-    if kind in {"renewal_due", "winback_eligible", "dormant_with_vera"}:
-        return "review the draft"
     return "review the draft"
 
 
@@ -607,10 +600,6 @@ def compose_message(
     identity = merchant.get("identity", {})
     name = identity.get("name", "your business")
     owner = salutation(merchant, category)
-    perf = merchant.get("performance", {})
-    peer = category.get("peer_stats", {})
-    city = identity.get("city", "")
-    locality = identity.get("locality", "")
     offer = active_offer(merchant, category)
     suppression_key = trigger.get("suppression_key", trigger.get("id", ""))
     send_as = "merchant_on_behalf" if customer else "vera"
@@ -625,68 +614,14 @@ def compose_message(
             "rationale": f"Customer-scoped {kind}; uses customer relationship, consent, and merchant offer.",
         }
 
-    if kind == "research_digest":
-        item = find_digest_item(category, trigger) or {}
-        trial = item.get("trial_n")
-        trial_part = f"{trial:,}-patient " if isinstance(trial, int) else ""
-        segment = item.get("patient_segment", "customers").replace("_", " ")
-        source = item.get("source", "latest category digest")
-        title = item.get("title", "new category update")
-        count = merchant.get("customer_aggregate", {}).get("high_risk_adult_count")
-        count_part = f"your {count} {segment}" if count and "high risk" in segment else f"your {segment}"
-        summary = item.get("summary", "")
-        reduction = "38%" if "38%" in summary else ""
-        finding = f" found {reduction} lower recurrence" if reduction else " is worth reviewing"
-        body = (
-            f"{owner}, {source}: for {count_part}, a {trial_part}trial{finding}. "
-            f"Want me to draft the patient-facing chat?"
-        )
-    elif kind in {"regulation_change", "supply_alert"}:
-        payload = trigger.get("payload", {})
-        item = find_digest_item(category, trigger) or payload
-        if kind == "supply_alert" and payload.get("molecule"):
-            batches = ", ".join(payload.get("affected_batches", [])[:2]) or "listed batches"
-            title = f"{payload.get('molecule')} batches {batches} need verification"
-        else:
-            title = item.get("title") or payload.get("title") or payload_brief(payload, 90)
-        source = item.get("source") or payload.get("source") or "category alert"
-        body = f"{owner}, {source}: {title}. Want me to draft a 3-step checklist for {name} so your team can verify it today?"
-    elif kind in {"perf_dip", "seasonal_perf_dip"}:
-        views_delta = pct((perf.get("delta_7d") or {}).get("views_pct", 0))
-        ctr = perf.get("ctr")
-        avg_ctr = peer.get("avg_ctr")
-        ctr_part = f" CTR {pct1(ctr)} vs peer {pct1(avg_ctr)}." if isinstance(ctr, (int, float)) and isinstance(avg_ctr, (int, float)) else ""
-        body = f"{owner}, views are {views_delta} this week.{ctr_part} Rather than a flat discount, want me to draft a recovery chat around {offer}?"
-    elif kind == "perf_spike":
-        views_delta = pct((perf.get("delta_7d") or {}).get("views_pct", 0))
-        body = f"{owner}, your views are up {views_delta} this week. This is the right moment to convert interest: want me to draft a short follow-up around {offer}?"
-    elif kind in {"festival_upcoming", "ipl_match_today", "category_seasonal"}:
-        payload = trigger.get("payload", {})
-        event = payload.get("event") or payload.get("match") or payload.get("title") or kind.replace("_", " ")
-        body = f"{owner}, {event} is a timely hook for {locality or city}. Want me to draft one chat campaign using {offer}, no generic percentage discount?"
-    elif kind in {"curious_ask_due", "dormant_with_vera"}:
-        body = f"Quick check, {owner}: what service are customers asking about most this week at {name}? I'll turn your answer into a Google post + 4-line chat reply."
-    elif kind in {"active_planning_intent", "milestone_reached"}:
-        payload = trigger.get("payload", {})
-        plan = payload.get("intent_topic") or payload.get("metric") or "this plan"
-        body = f"{owner}, I can turn {format_value(plan)} into a ready plan for {name}: {offer}, target audience, and 3-line outreach copy. Want the first draft now?"
-    elif kind == "competitor_opened":
-        payload = trigger.get("payload", {})
-        distance = payload.get("distance_km") or payload.get("distance")
-        distance_part = f" {distance}km away" if distance else ""
-        strengths = []
-        if merchant.get("review_themes"):
-            positives = [r["theme"].replace("_", " ") for r in merchant["review_themes"] if r.get("sentiment") == "pos"]
-            strengths.extend(positives[:1])
-        if active_offer(merchant, category) != "your current offer":
-            strengths.append(active_offer(merchant, category))
-        strength_part = f" Your visible edge: {', '.join(strengths[:2])}." if strengths else ""
-        body = f"{owner}, a competitor signal appeared{distance_part} near {locality or city}.{strength_part} Want a response post?"
-    elif kind in {"review_theme_emerged", "gbp_unverified", "renewal_due", "winback_eligible"}:
-        signal = ", ".join(merchant.get("signals", [])[:2]) or kind.replace("_", " ")
-        body = f"{owner}, I noticed {signal} for {name}. Want me to draft the next best action using only your current business data?"
-    else:
-        body = f"{owner}, {kind.replace('_', ' ')} is active for {name}. Want me to draft one specific message using {offer}?"
+    item = find_digest_item(category, trigger) or {}
+    source = source_label(item.get("source") or trigger.get("source") or "provided business context")
+    evidence = item.get("title") or item.get("summary") or payload_brief(trigger.get("payload") or {}, 120)
+    audience = audience_hint(merchant)
+    body = (
+        f"{owner}, {source}: {evidence}. For {audience}, I can draft one grounded message "
+        f"using {offer}. Reply yes to see the shape."
+    )
 
     return {
         "body": no_ansi(compact(body)),
@@ -713,19 +648,13 @@ def compose_customer_message(
     last_service = services[-1] if services else "visit"
     pref = customer.get("preferences", {}).get("preferred_slots", "")
 
-    if kind == "recall_due":
-        body = (
-            f"Hi {customer_name}, {merchant_name} here. Your {last_service} recall is due"
-            f"{' after your last visit on ' + last_visit if last_visit else ''}. "
-            f"{offer}. Want us to hold a {pref.replace('_', ' ') or 'convenient'} slot this week?"
-        )
-    elif kind in {"customer_lapsed_hard", "trial_followup", "wedding_package_followup", "chronic_refill_due"}:
-        body = (
-            f"Hi {customer_name}, {merchant_name} here. Based on your last {last_service}, "
-            f"we have a relevant follow-up ready: {offer}. Should we help you book a {pref.replace('_', ' ') or 'convenient'} slot?"
-        )
-    else:
-        body = f"Hi {customer_name}, {merchant_name} here. We have a timely update for you: {offer}. Should we help you with this today?"
+    context = payload_brief(trigger.get("payload") or {}, 100)
+    timing = f" after your last visit on {last_visit}" if last_visit else ""
+    slot = pref.replace("_", " ") or "convenient"
+    body = (
+        f"Hi {customer_name}, {merchant_name} here. Based on your last {last_service}{timing}, "
+        f"this is relevant now: {context}. {offer}. Should we help you with a {slot} slot?"
+    )
     return compact(body)
 
 
@@ -835,61 +764,21 @@ def final_confirmed_draft(
     category: dict[str, Any],
     trigger: dict[str, Any],
 ) -> str:
-    kind = trigger.get("kind", "")
     payload = trigger.get("payload", {})
     name = merchant.get("identity", {}).get("name", "your business")
     offer = active_offer(merchant, category)
-    if kind == "research_digest":
-        item = find_digest_item(category, trigger) or {}
-        source = item.get("source", "the latest dental digest")
-        action = item.get("actionable") or "a timely recall check"
-        return compact(
-            f"Draft: Hi, {name} here. {source} has a useful update: {action}. "
-            f"If this applies to you, reply 1 and we’ll help with {offer}."
-        )
-    if kind == "active_planning_intent":
-        topic = format_value(payload.get("intent_topic") or "weekday offer")
-        return compact(
-            f"Draft: Office lunch sorted near you - {name} has {offer} for teams. "
-            f"Best for {topic}. Reply with headcount and delivery time."
-        )
-    if kind == "competitor_opened":
-        competitor = payload.get("competitor_name", "a nearby competitor")
-        return compact(
-            f"Draft: {competitor} opened nearby, but your edge is trust and care already visible in reviews. "
-            f"Post {offer} with one proof point today. Reply DONE after posting."
-        )
-    if kind == "renewal_due":
-        return compact(
-            f"Draft: {owner}, your {payload.get('plan', 'current')} plan renewal is Rs {payload.get('renewal_amount', '?')} "
-            f"and due in {payload.get('days_remaining', '?')} days. Want me to keep growth messages active?"
-        )
-    if kind == "ipl_match_today":
-        return compact(
-            f"Draft: {payload.get('match', 'Match')} night at {name}: {offer}. "
-            f"Order before the rush and we’ll prioritize prep."
-        )
-    if kind in {"supply_alert", "regulation_change"}:
-        item = find_digest_item(category, trigger) or {}
-        title = item.get("title") or payload_brief(payload, 80)
-        if payload.get("molecule") or payload.get("affected_batches"):
-            batches = ", ".join(payload.get("affected_batches", [])[:3]) or "listed batches"
-            title = f"{payload.get('molecule', 'item')} batches {batches}"
-        return compact(
-            f"Draft checklist for {name}: 1) verify {title}, 2) remove doubtful stock, "
-            f"3) message impacted customers only with confirmed facts."
-        )
-    if kind == "review_theme_emerged":
-        theme = format_value(payload.get("theme") or "the review issue")
-        return compact(f"Draft: Thanks for flagging {theme}. We’ve tightened the process and will personally track your next order/visit. Reply here if it slips again.")
-    if kind in {"perf_dip", "seasonal_perf_dip", "perf_spike"}:
-        metric = format_value(payload.get("metric") or "interest")
-        return compact(f"Draft: Quick update from {name}: {offer}. We’re keeping slots/orders tight this week, so reply YES and we’ll help you book today.")
     customer_id = trigger.get("customer_id")
     customer = contexts.get(("customer", customer_id), {}).get("payload") if customer_id else None
     if customer:
         return compose_customer_message(category, merchant, trigger, customer)
-    return compact(f"Draft: {name} update - {offer}. Reply YES and we’ll help you with the next step today.")
+    item = find_digest_item(category, trigger) or {}
+    source = source_label(item.get("source") or trigger.get("source") or "today's update")
+    evidence = item.get("actionable") or item.get("summary") or item.get("title") or payload_brief(payload, 120)
+    audience = audience_hint(merchant)
+    return compact(
+        f"Draft: {name} update - {source}: {evidence}. "
+        f"For {audience}, use {offer}. Reply YES and we’ll help with the next step."
+    )
 
 
 def draft_preview(
@@ -898,25 +787,15 @@ def draft_preview(
     category: dict[str, Any],
     trigger: dict[str, Any],
 ) -> str:
-    kind = trigger.get("kind", "")
     offer = active_offer(merchant, category)
     item = find_digest_item(category, trigger) or {}
     context = payload_brief(trigger.get("payload") or {}, 95)
-    if kind in {"research_digest", "cde_opportunity"}:
-        source = item.get("source", "the referenced digest")
-        action = item.get("actionable") or context
-        return compact(f"Preview, {owner}: use {source}, mention {action}, then route interested customers to {offer}. Reply CONFIRM and I’ll output the exact customer message.")
-    if kind in {"supply_alert", "regulation_change"}:
-        return compact(f"Preview, {owner}: 1) state the verified alert, 2) list the exact item/batch/action, 3) tell staff what to check today. Reply CONFIRM for the checklist.")
-    if kind == "active_planning_intent":
-        return compact(f"Preview, {owner}: audience = nearby office admins, hook = reliable weekday lunch, offer = {offer}, copy = 3 short lines. Reply CONFIRM for the exact draft.")
-    if kind == "review_theme_emerged":
-        return compact(f"Preview, {owner}: acknowledge the review theme, fix the operational miss, then send a short recovery note using {offer}. Reply CONFIRM for copy.")
-    if kind in {"perf_dip", "seasonal_perf_dip", "perf_spike"}:
-        return compact(f"Preview, {owner}: use the recent performance signal, avoid panic discounting, and send one targeted message around {offer}. Reply CONFIRM for copy.")
-    if kind == "competitor_opened":
-        return compact(f"Preview, {owner}: do not match blindly; lead with your proof point, then {offer}. Reply CONFIRM for the response post.")
-    return compact(f"Preview, {owner}: I’ll use {context} with {offer}, keep it to one message and one CTA. Reply CONFIRM for the exact draft.")
+    source = source_label(item.get("source") or trigger.get("source") or "the provided context")
+    action = item.get("actionable") or item.get("summary") or context
+    return compact(
+        f"Preview, {owner}: source = {source}; audience = {audience_hint(merchant)}; "
+        f"message = {action}; offer/context = {offer}. Reply CONFIRM for the exact draft."
+    )
 
 
 def contextual_question_reply(
@@ -925,29 +804,15 @@ def contextual_question_reply(
     category: dict[str, Any],
     trigger: dict[str, Any],
 ) -> str:
-    kind = trigger.get("kind", "")
     payload = trigger.get("payload", {})
     offer = active_offer(merchant, category)
-    if kind == "renewal_due":
-        return compact(f"{owner}, the renewal shown here is Rs {payload.get('renewal_amount', '?')} for the {payload.get('plan', 'current')} plan, due in {payload.get('days_remaining', '?')} days. Want me to draft the renewal message?")
-    if kind == "competitor_opened":
-        return compact(f"{owner}, the competitor is using {money_safe(payload.get('their_offer', 'a lower offer'))}. I’d avoid matching blindly; we can counter with {offer} plus your proof. Draft it?")
-    if kind == "research_digest":
-        item = find_digest_item(category, trigger) or {}
-        return compact(f"{owner}, this is about using {item.get('source', 'the research digest')} to support a patient-facing chat around {offer}. No extra campaign cost is shown in the data. Want the draft?")
-    if kind == "active_planning_intent":
-        return compact(f"{owner}, no campaign spend is shown here. The price in the message is the customer-facing offer: {offer}. I can draft the office/team lunch copy from the planning context. Continue?")
-    if kind in {"perf_dip", "seasonal_perf_dip"}:
-        return compact(f"{owner}, this is not a paid-spend recommendation yet. It is a recovery message around {offer} because {payload.get('metric', 'performance')} moved recently. Want me to draft that first?")
-    if kind == "ipl_match_today":
-        return compact(f"{owner}, this is about {payload.get('match', 'today’s match')} near {payload.get('venue', 'your locality')}. The current offer is {offer}; I can draft a match-day version without inventing discounts. Continue?")
-    if kind == "supply_alert":
-        batches = ", ".join(payload.get("affected_batches", [])[:2]) or "the affected batches"
-        return compact(f"{owner}, this is about checking {payload.get('molecule', 'the item')} batches {batches}, not a promotion. I can draft a safe staff workflow message. Want that?")
-    if kind == "chronic_refill_due":
-        meds = ", ".join(payload.get("molecule_list", [])[:3]) or "the monthly medicines"
-        return compact(f"{owner}, this is a refill reminder for {meds}; delivery address is already saved. I can draft a confirmation message, not add new medical claims. Continue?")
-    return compact(f"{owner}, this is about {readable_kind(kind).lower()} for {merchant_label(merchant)}. The relevant offer/context is {offer}. Want me to draft the next message?")
+    item = find_digest_item(category, trigger) or {}
+    source = source_label(item.get("source") or trigger.get("source") or "the provided context")
+    evidence = item.get("summary") or item.get("title") or payload_brief(payload, 120)
+    return compact(
+        f"{owner}, the data only shows this context: {source} - {evidence}. "
+        f"The customer-facing offer/context is {offer}; no extra campaign cost is stated unless the payload says so. Continue?"
+    )
 
 
 def readable_kind(kind: str) -> str:
@@ -984,47 +849,11 @@ def demo_trigger_summary(trigger_id: str, trigger: dict[str, Any]) -> dict[str, 
     customer_name = customer_label(customer)
     active = active_offer(merchant or {}, contexts.get(("category", category), {}).get("payload", {}))
 
+    item = find_digest_item(contexts.get(("category", category), {}).get("payload", {}), trigger) or {}
     title = readable_kind(kind)
-    summary = f"{merchant_name} has a {readable_kind(kind).lower()} trigger."
-    if kind == "research_digest":
-        title = "Research digest for dentist"
-        summary = f"{identity.get('owner_first_name', 'The owner')} can use a new clinical digest item for {merchant.get('customer_aggregate', {}).get('high_risk_adult_count', 'their')} high-risk adult patients."
-    elif kind == "regulation_change":
-        title = "Compliance deadline"
-        summary = f"A regulation update has a deadline on {payload.get('deadline_iso', 'record')}; turn it into a practical action."
-    elif kind == "recall_due":
-        title = "Customer recall due"
-        summary = f"{customer_name or 'A customer'} is due for {payload.get('service_due', 'a recall').replace('_', ' ')}; available slots are already known."
-    elif kind == "perf_dip":
-        title = "Performance dip"
-        summary = f"{payload.get('metric', 'Performance').title()} is down {abs(int(float(payload.get('delta_pct', 0)) * 100))}% over {payload.get('window', 'recent window')}; propose a concrete recovery action."
-    elif kind == "renewal_due":
-        title = "Renewal due soon"
-        summary = f"{payload.get('plan', 'Plan')} renewal is due in {payload.get('days_remaining', '?')} days for Rs {payload.get('renewal_amount', '?')}."
-    elif kind == "festival_upcoming":
-        title = f"{payload.get('festival', 'Festival')} planning"
-        summary = f"{payload.get('festival', 'A festival')} is upcoming; find a category-relevant angle without fake urgency."
-    elif kind == "wedding_package_followup":
-        title = "Bridal follow-up"
-        summary = f"{customer_name or 'A bridal lead'} completed a trial; wedding date is {payload.get('wedding_date', 'record')}."
-    elif kind == "ipl_match_today":
-        title = "IPL match day"
-        summary = f"{payload.get('match', 'An IPL match')} at {payload.get('venue', 'local venue')}; decide whether to pitch a match-day message."
-    elif kind == "active_planning_intent":
-        title = "Active planning intent"
-        summary = f"Merchant already asked: {payload.get('merchant_last_message', 'what should it look like')}"
-    elif kind == "supply_alert":
-        title = "Pharmacy supply alert"
-        summary = f"{payload.get('molecule', 'A medicine')} has affected batches {', '.join(payload.get('affected_batches', [])[:2])}; avoid medical overreach."
-    elif kind == "chronic_refill_due":
-        title = "Chronic refill due"
-        summary = f"{customer_name or 'A patient'} runs out on {payload.get('stock_runs_out_iso', 'record')}; saved delivery address is available."
-    elif kind == "competitor_opened":
-        title = "Nearby competitor opened"
-        summary = f"{payload.get('competitor_name', 'A competitor')} opened {payload.get('distance_km', '?')} km away with {money_safe(payload.get('their_offer', 'an offer'))}."
-    elif kind == "customer_lapsed_hard":
-        title = "Customer winback"
-        summary = f"{customer_name or 'A customer'} has not visited for {payload.get('days_since_last_visit', '?')} days; draft a no-shame return message."
+    summary_source = item.get("title") or item.get("summary") or item.get("actionable") or payload_brief(payload, 180)
+    subject = customer_name or merchant_name
+    summary = f"{subject}: {summary_source}"
 
     subtitle = " | ".join(x for x in [merchant_name, category, f"customer: {customer_name}" if customer_name else None, f"offer/context: {active}" if active else None] if x)
     return {
