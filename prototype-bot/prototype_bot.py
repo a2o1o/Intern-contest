@@ -40,57 +40,88 @@ INDEX_HTML = """<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vera Prototype Bot</title>
   <style>
-    body{font-family:Inter,system-ui,sans-serif;margin:0;background:#f7f5f0;color:#1a1a1a}
-    main{max-width:980px;margin:0 auto;padding:32px 18px}
+    :root{--green:#173f2f;--accent:#2d6a4f;--paper:#f7f5f0;--line:#e6e1d8;--muted:#66645f}
+    body{font-family:Inter,system-ui,sans-serif;margin:0;background:var(--paper);color:#171717}
+    main{max-width:1040px;margin:0 auto;padding:34px 18px}
     h1{font-size:42px;line-height:1;margin:0 0 12px}
-    p{color:#6a6a6a;line-height:1.6}
-    button,select,input{font:inherit}
-    .card{background:#fff;border:1px solid #e8e4dc;border-radius:10px;padding:18px;margin:14px 0}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    button{background:#2d6a4f;color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer}
-    select,input{border:1px solid #d0ccc4;border-radius:8px;padding:10px;background:white;min-width:260px}
+    h2{font-size:28px;margin:0 0 14px}
+    p{color:var(--muted);line-height:1.6}
+    button,select,input,textarea{font:inherit}
+    .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:22px;margin:16px 0}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .row>*{min-height:44px}
+    button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 15px;font-weight:800;cursor:pointer}
+    button.secondary{background:#edf3ef;color:var(--green);border:1px solid #c9ded5}
+    button.chip{background:#fff;color:var(--green);border:1px solid #cfc9bd;font-weight:750}
+    select,input,textarea{border:1px solid #d0ccc4;border-radius:8px;padding:10px;background:white}
+    select{min-width:min(100%,560px);flex:1}
+    input{min-width:min(100%,340px)}
+    textarea{width:100%;min-height:168px;box-sizing:border-box;line-height:1.45}
     pre{white-space:pre-wrap;background:#102b21;color:#fff;border-radius:8px;padding:14px;overflow:auto}
-    .muted{font-size:13px;color:#6a6a6a}
-    .clean{background:#e8f0ee;border:1px solid #c9ded5;border-radius:8px;padding:14px;margin:12px 0;color:#1b4332;font-size:20px;line-height:1.45;font-weight:650}
-    .label{font-size:12px;font-weight:800;color:#2d6a4f;text-transform:uppercase;margin-top:14px}
+    .muted{font-size:13px;color:var(--muted)}
+    .clean{background:#e8f0ee;border:1px solid #c9ded5;border-radius:8px;padding:18px;margin:10px 0 18px;color:#173f2f;font-size:21px;line-height:1.45;font-weight:720}
+    .label{font-size:12px;font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-top:18px;margin-bottom:8px}
+    .conversation{display:grid;grid-template-columns:1fr;gap:10px}
+    .bubble{border-radius:10px;padding:14px 16px;line-height:1.45;max-width:850px}
+    .bot{background:#e8f0ee;color:#173f2f;border:1px solid #c9ded5}
+    .merchant{background:#f8f6f1;color:#1d1d1d;border:1px solid #e4ded3;justify-self:end}
     details{margin-top:12px}
-    summary{cursor:pointer;color:#2d6a4f;font-weight:800}
+    summary{cursor:pointer;color:var(--accent);font-weight:900}
+    code{background:#f2eee6;border-radius:4px;padding:1px 5px}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media(max-width:760px){h1{font-size:34px}.two{grid-template-columns:1fr}.clean{font-size:18px}}
   </style>
 </head>
 <body>
   <main>
     <h1>Vera Prototype Bot</h1>
-    <p>This URL exposes the challenge HTTP contract and a tiny demo UI. Use it to generate bot messages, paste them into the judging chat, and score the result.</p>
+    <p>This URL exposes the same HTTP contract candidates will implement, plus a cleaner demo surface for judging message quality. Pick a scenario, generate the assistant's first message, send a merchant reply, then copy the transcript into the judging chat.</p>
     <div class="card">
-      <h2>Generate proactive messages</h2>
-      <p class="muted">Uses preloaded dataset triggers if the server was started with <code>--preload-dir</code>.</p>
+      <h2>1. Pick a scenario</h2>
       <div class="row">
         <select id="trigger"></select>
-        <button onclick="tick()">Run /v1/tick</button>
+        <button onclick="tick()">Generate bot message</button>
       </div>
-      <div class="label">Clean bot message</div>
-      <div id="tickClean" class="clean">Pick a trigger and click Run /v1/tick.</div>
+      <div class="label">Assistant message</div>
+      <div id="tickClean" class="clean">Pick a scenario and generate a bot message.</div>
       <details>
-        <summary>Raw JSON</summary>
+        <summary>Raw /v1/tick JSON</summary>
         <pre id="tickOut">Loading triggers...</pre>
       </details>
     </div>
     <div class="card">
-      <h2>Test a merchant reply</h2>
-      <div class="row">
-        <input id="conv" placeholder="conversation_id from tick output" />
-        <input id="msg" placeholder="merchant reply" value="Yes please send it" />
-        <button onclick="reply()">Run /v1/reply</button>
+      <h2>2. Send a merchant reply</h2>
+      <p class="muted">Use one of the examples or type your own reply. The conversation ID is filled automatically from the generated message.</p>
+      <div class="row" style="margin-bottom:12px">
+        <button class="chip" onclick="setMerchantReply('Yes please send it')">Interested</button>
+        <button class="chip" onclick="setMerchantReply('Thank you for contacting us. We will get back to you soon.')">Auto-reply</button>
+        <button class="chip" onclick="setMerchantReply('How much will this cost?')">Pricing ask</button>
+        <button class="chip" onclick="setMerchantReply('Can you also help me file GST?')">Off-topic</button>
+        <button class="chip" onclick="setMerchantReply('Not interested')">Decline</button>
       </div>
-      <div class="label">Clean bot reply</div>
-      <div id="replyClean" class="clean">Enter a merchant reply and click Run /v1/reply.</div>
+      <div class="row">
+        <input id="conv" placeholder="conversation ID will appear here" readonly />
+        <input id="msg" placeholder="merchant reply" value="Yes please send it" />
+        <button onclick="reply()">Send merchant reply</button>
+      </div>
+      <div class="label">Assistant reply</div>
+      <div id="replyClean" class="clean">Generate a bot message first, then send a merchant reply.</div>
       <details>
-        <summary>Raw JSON</summary>
+        <summary>Raw /v1/reply JSON</summary>
         <pre id="replyOut"></pre>
       </details>
     </div>
     <div class="card">
-      <h2>Judge endpoints</h2>
+      <h2>3. Copy judge transcript</h2>
+      <p class="muted">Paste this into the judging chat to score decision quality, engagement, compulsion, adaptation, and constraint discipline.</p>
+      <textarea id="transcript" readonly>Generate a bot message to build the transcript.</textarea>
+      <div class="row" style="margin-top:12px">
+        <button onclick="copyTranscript()">Copy transcript</button>
+        <button class="secondary" onclick="resetDemo()">Reset page</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Contract endpoints</h2>
       <pre>GET  /v1/healthz
 GET  /v1/metadata
 POST /v1/context
@@ -99,26 +130,53 @@ POST /v1/reply</pre>
     </div>
   </main>
   <script>
+    let lastAction = null;
+    let lastReply = null;
+    let triggerMap = {};
+
+    function escapeHtml(value){
+      return String(value || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function triggerLabel(t){
+      const merchant = t.merchant_id ? t.merchant_id.replace(/^m_\\d+_/, '').replaceAll('_', ' ') : 'unknown merchant';
+      return `${t.id} | ${t.kind || 'trigger'} | ${merchant}`;
+    }
     async function loadTriggers(){
       const res = await fetch('/demo/triggers');
       const data = await res.json();
       const select = document.getElementById('trigger');
-      select.innerHTML = data.triggers.map(t => `<option value="${t.id}">${t.id} — ${t.kind}</option>`).join('');
+      triggerMap = Object.fromEntries(data.triggers.map(t => [t.id, t]));
+      select.innerHTML = data.triggers.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(triggerLabel(t))}</option>`).join('');
       document.getElementById('tickOut').textContent = JSON.stringify(data, null, 2);
+      updateTranscript();
     }
     async function tick(){
       const id = document.getElementById('trigger').value;
-      const res = await fetch('/demo/tick', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({available_triggers:[id]})});
+      lastAction = null;
+      lastReply = null;
+      document.getElementById('replyOut').textContent = '';
+      document.getElementById('replyClean').textContent = 'Now send a merchant reply.';
+      const res = await fetch('/demo/tick', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({available_triggers:[id], force:true})});
       const data = await res.json();
       document.getElementById('tickOut').textContent = JSON.stringify(data, null, 2);
       if(data.actions && data.actions[0]) {
-        document.getElementById('conv').value = data.actions[0].conversation_id;
-        document.getElementById('tickClean').textContent = data.actions[0].body;
+        lastAction = data.actions[0];
+        document.getElementById('conv').value = lastAction.conversation_id;
+        document.getElementById('tickClean').textContent = lastAction.body;
       } else {
         document.getElementById('tickClean').textContent = 'No message sent for this trigger.';
+        document.getElementById('conv').value = '';
       }
+      updateTranscript();
+    }
+    function setMerchantReply(text){
+      document.getElementById('msg').value = text;
     }
     async function reply(){
+      if(!document.getElementById('conv').value){
+        document.getElementById('replyClean').textContent = 'Generate a bot message first so the conversation ID is available.';
+        return;
+      }
       const res = await fetch('/demo/reply', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
         conversation_id: document.getElementById('conv').value,
         merchant_id: null,
@@ -129,9 +187,53 @@ POST /v1/reply</pre>
         turn_number: 2
       })});
       const data = await res.json();
+      lastReply = data;
       document.getElementById('replyOut').textContent = JSON.stringify(data, null, 2);
       document.getElementById('replyClean').textContent = data.body || `Action: ${data.action}`;
+      updateTranscript();
     }
+    function updateTranscript(){
+      const selected = triggerMap[document.getElementById('trigger').value] || {};
+      const merchantReply = document.getElementById('msg') ? document.getElementById('msg').value : '';
+      const lines = [
+        'Judge this prototype bot response using the 50-point challenge rubric.',
+        '',
+        `Scenario: ${selected.id || 'not selected'} (${selected.kind || 'unknown'})`,
+        `Merchant ID: ${selected.merchant_id || 'unknown'}`,
+        '',
+        'Initial bot message:',
+        lastAction ? lastAction.body : '[not generated yet]',
+        '',
+        `Initial CTA: ${lastAction ? lastAction.cta : '[not generated yet]'}`,
+        `Initial rationale: ${lastAction ? lastAction.rationale : '[not generated yet]'}`,
+        '',
+        'Merchant reply:',
+        merchantReply || '[not entered yet]',
+        '',
+        'Bot follow-up reply:',
+        lastReply ? (lastReply.body || `Action: ${lastReply.action}`) : '[not generated yet]',
+        '',
+        `Follow-up CTA: ${lastReply && lastReply.cta ? lastReply.cta : '[not generated yet]'}`,
+        `Follow-up rationale: ${lastReply && lastReply.rationale ? lastReply.rationale : '[not generated yet]'}`,
+      ];
+      document.getElementById('transcript').value = lines.join('\\n');
+    }
+    async function copyTranscript(){
+      await navigator.clipboard.writeText(document.getElementById('transcript').value);
+    }
+    function resetDemo(){
+      lastAction = null;
+      lastReply = null;
+      document.getElementById('conv').value = '';
+      document.getElementById('msg').value = 'Yes please send it';
+      document.getElementById('tickClean').textContent = 'Pick a scenario and generate a bot message.';
+      document.getElementById('replyClean').textContent = 'Generate a bot message first, then send a merchant reply.';
+      document.getElementById('replyOut').textContent = '';
+      updateTranscript();
+    }
+    document.addEventListener('input', event => {
+      if(event.target && event.target.id === 'msg') updateTranscript();
+    });
     loadTriggers();
   </script>
 </body>
@@ -595,7 +697,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(400, {"error": "invalid_json"})
                 return
             if path == "/demo/tick":
-                self.send_json(200, {"actions": build_actions(body.get("available_triggers", [])[:20])})
+                trigger_ids = body.get("available_triggers", [])[:20]
+                if body.get("force"):
+                    clear_demo_suppression(trigger_ids)
+                self.send_json(200, {"actions": build_actions(trigger_ids)})
             else:
                 self.send_json(200, reply_action(body))
             return
@@ -688,6 +793,17 @@ def build_actions(trigger_ids: list[str]) -> list[dict[str, Any]]:
             }
         )
     return actions
+
+
+def clear_demo_suppression(trigger_ids: list[str]) -> None:
+    for trigger_id in trigger_ids[:20]:
+        trigger = contexts.get(("trigger", trigger_id), {}).get("payload")
+        if not trigger:
+            continue
+        used_suppression_keys.discard(trigger.get("suppression_key", trigger_id))
+        merchant_id = trigger.get("merchant_id")
+        if merchant_id:
+            sent_bodies.pop(f"conv_{merchant_id}_{trigger_id}", None)
 
 
 def main() -> None:
