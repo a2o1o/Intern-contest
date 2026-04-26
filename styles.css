@@ -538,6 +538,111 @@ pre code {
   min-height: 240px;
 }
 
+.testing-section {
+  background: var(--paper);
+}
+
+.endpoint-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.endpoint-grid article,
+.test-flow article,
+.deployment-panel,
+.rules-strip div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.endpoint-grid article,
+.test-flow article {
+  padding: 1.2rem;
+}
+
+.endpoint-grid article {
+  min-height: 220px;
+}
+
+.endpoint-grid span {
+  display: inline-flex;
+  margin-bottom: 1.1rem;
+  padding: 0.26rem 0.5rem;
+  border-radius: 6px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.endpoint-grid h3 {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 1rem;
+}
+
+.test-flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.test-flow article {
+  min-height: 230px;
+  background: var(--surface-2);
+}
+
+.test-flow span {
+  display: inline-flex;
+  margin-bottom: 1.2rem;
+  color: var(--red);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.rules-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.rules-strip div {
+  display: flex;
+  min-height: 96px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.rules-strip strong {
+  margin-bottom: 0.25rem;
+  color: var(--green-dark);
+  font-size: 1.05rem;
+}
+
+.rules-strip span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.deployment-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1.3rem;
+  background: var(--green-dark);
+  color: #fff;
+}
+
+.deployment-panel p {
+  color: rgba(255, 255, 255, 0.74);
+}
+
 .apply-section {
   display: grid;
   grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1fr);
@@ -585,7 +690,10 @@ pre code {
   .score-grid,
   .explain-grid,
   .patterns,
-  .timeline {
+  .timeline,
+  .endpoint-grid,
+  .test-flow,
+  .rules-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -631,6 +739,10 @@ pre code {
   .patterns,
   .dataset-shell,
   .timeline,
+  .endpoint-grid,
+  .test-flow,
+  .rules-strip,
+  .deployment-panel,
   .apply-section,
   .logistics {
     grid-template-columns: 1fr;

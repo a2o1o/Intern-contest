@@ -26,6 +26,7 @@
         <a href="#challenge">Challenge</a>
         <a href="#rubric">Rubric</a>
         <a href="#examples">Examples</a>
+        <a href="#testing">Testing</a>
         <a href="#submit">Submit</a>
       </nav>
       <a class="nav-cta" href="#apply">Apply soon</a>
@@ -339,6 +340,99 @@ test_set/     30 canonical pairs for like-for-like judging</code></pre>
             <p>Finalists handle simulated merchant replies, auto-replies, objections, and intent handoffs.</p>
           </li>
         </ol>
+      </section>
+
+      <section id="testing" class="section testing-section">
+        <div class="section-heading wide">
+          <p class="eyebrow">How the live test works</p>
+          <h2>Candidates expose a public HTTP bot. The judge drives the whole conversation.</h2>
+          <p>
+            During testing, magicpin's harness pushes context, wakes the bot on simulated time ticks,
+            plays merchant replies, and scores every message. The bot must stay stateful, fast, and grounded
+            in the contexts it has received.
+          </p>
+        </div>
+
+        <div class="endpoint-grid" aria-label="Candidate HTTP endpoint contract">
+          <article>
+            <span>POST</span>
+            <h3>/v1/context</h3>
+            <p>Receives category, merchant, customer, and trigger updates. Idempotent on scope, context ID, and version.</p>
+          </article>
+          <article>
+            <span>POST</span>
+            <h3>/v1/tick</h3>
+            <p>Periodic wake-up. Bot decides whether to proactively send zero or more messages for active triggers.</p>
+          </article>
+          <article>
+            <span>POST</span>
+            <h3>/v1/reply</h3>
+            <p>Judge plays the merchant or customer. Bot must answer with send, wait, or end within 10 seconds.</p>
+          </article>
+          <article>
+            <span>GET</span>
+            <h3>/v1/healthz</h3>
+            <p>Liveness probe with loaded-context counts. Three consecutive failures disqualify the bot for the slot.</p>
+          </article>
+          <article>
+            <span>GET</span>
+            <h3>/v1/metadata</h3>
+            <p>Team identity, members, model, approach, contact email, version, and submitted timestamp.</p>
+          </article>
+        </div>
+
+        <div class="test-flow">
+          <article>
+            <span>01</span>
+            <h3>Warmup</h3>
+            <p>Health check, metadata check, then 255 base contexts: 5 categories, 50 merchants, 200 customers, 0 triggers.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Test window</h3>
+            <p>60 simulated minutes. Every 5 simulated minutes, the judge pushes updates and calls /v1/tick.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Adaptive injection</h3>
+            <p>Fresh digest items, performance shifts, new triggers, and surprise customer scopes arrive mid-test.</p>
+          </article>
+          <article>
+            <span>04</span>
+            <h3>Replay test</h3>
+            <p>Top 10 face auto-reply hell, intent transition, and hostile/off-topic merchant scenarios.</p>
+          </article>
+          <article>
+            <span>05</span>
+            <h3>Score report</h3>
+            <p>Teams receive per-message scores, context logs, transcripts, timeline, and judge rationale.</p>
+          </article>
+        </div>
+
+        <div class="rules-strip">
+          <div><strong>Auth</strong><span>Bearer team token on every /v1 request</span></div>
+          <div><strong>Timeout</strong><span>10 seconds per call</span></div>
+          <div><strong>Rate</strong><span>10 requests/sec from judge</span></div>
+          <div><strong>Payload</strong><span>500 KB context cap</span></div>
+          <div><strong>Tick cap</strong><span>20 actions per tick</span></div>
+        </div>
+
+        <div class="deployment-panel">
+          <div>
+            <h3>Deployment options</h3>
+            <p>
+              Candidates can use their own cloud, submit a Docker image for the magicpin sandbox, or use a
+              notebook plus tunnel. Own cloud is best for control; sandbox is best for first-time submitters.
+            </p>
+          </div>
+          <div>
+            <h3>Local self-test</h3>
+            <p>
+              A <code>judge_simulator.py</code> CLI will run warmup, short phase-2 tests, auto-reply hell,
+              and full scenarios before submission.
+            </p>
+          </div>
+        </div>
       </section>
 
       <section id="apply" class="section apply-section">
