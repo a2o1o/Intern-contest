@@ -278,45 +278,6 @@ p {
   font-size: 1.07rem;
 }
 
-.live-section {
-  background: #fff;
-}
-
-.live-table {
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: minmax(210px, 1.4fr) repeat(3, minmax(90px, 0.5fr));
-  gap: 1rem;
-  align-items: center;
-  min-height: 58px;
-  padding: 0 1.1rem;
-  border-top: 1px solid var(--line);
-}
-
-.table-row:first-child {
-  border-top: 0;
-}
-
-.table-head {
-  min-height: 48px;
-  color: var(--muted);
-  background: var(--surface-2);
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.table-row strong {
-  color: var(--green-dark);
-  font-size: 1.08rem;
-}
-
 .intro-grid,
 .score-grid,
 .explain-grid,
@@ -956,11 +917,4 @@ pre code {
     font-size: 1.08rem;
   }
 
-  .live-table {
-    overflow-x: auto;
-  }
-
-  .table-row {
-    width: 680px;
-  }
 }
