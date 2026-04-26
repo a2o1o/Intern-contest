@@ -1,18 +1,19 @@
 :root {
   color-scheme: light;
-  --ink: #16181d;
-  --muted: #616977;
-  --line: #dbe0e7;
-  --paper: #f7f3ed;
+  --ink: #1a1a1a;
+  --muted: #6a6a6a;
+  --line: #e8e4dc;
+  --paper: #f7f5f0;
   --surface: #ffffff;
-  --surface-2: #eef3f0;
-  --red: #d83b34;
-  --red-dark: #9f2724;
-  --green: #11745f;
-  --green-soft: #d9eee8;
-  --gold: #b67816;
-  --blue: #245a86;
-  --shadow: 0 20px 60px rgba(22, 24, 29, 0.16);
+  --surface-2: #f0ede8;
+  --red: #ef1c74;
+  --red-dark: #c0145c;
+  --green: #2d6a4f;
+  --green-dark: #1b4332;
+  --green-soft: #e8f0ee;
+  --gold: #f59e0b;
+  --blue: #6561e8;
+  --shadow: 0 20px 60px rgba(26, 26, 26, 0.13);
 }
 
 * {
@@ -27,7 +28,7 @@ body {
   margin: 0;
   color: var(--ink);
   background: var(--paper);
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 a {
@@ -55,9 +56,9 @@ code {
   gap: 1rem;
   min-height: 72px;
   padding: 0.9rem clamp(1rem, 3vw, 3rem);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
-  color: #fff;
-  background: rgba(13, 18, 22, 0.72);
+  border-bottom: 1px solid rgba(26, 26, 26, 0.06);
+  color: var(--ink);
+  background: rgba(247, 245, 240, 0.92);
   backdrop-filter: blur(18px);
 }
 
@@ -81,28 +82,28 @@ code {
   height: 34px;
   place-items: center;
   border-radius: 8px;
-  background: var(--red);
+  background: var(--green);
   color: #fff;
   font-weight: 800;
 }
 
 .topbar nav {
   gap: clamp(0.8rem, 2vw, 1.8rem);
-  color: rgba(255, 255, 255, 0.82);
+  color: #4a4a4a;
   font-size: 0.92rem;
   font-weight: 600;
 }
 
 .topbar nav a:hover,
 .footer a:hover {
-  color: #fff;
+  color: var(--green);
 }
 
 .nav-cta {
   padding: 0.62rem 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.32);
+  border: 1.5px solid var(--green);
   border-radius: 8px;
-  color: #fff;
+  color: var(--green);
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -134,8 +135,8 @@ code {
 .hero-overlay {
   z-index: -1;
   background:
-    linear-gradient(90deg, rgba(8, 13, 16, 0.08), rgba(8, 13, 16, 0.46) 48%, rgba(8, 13, 16, 0.78)),
-    linear-gradient(180deg, rgba(8, 13, 16, 0.12), rgba(8, 13, 16, 0.58));
+    linear-gradient(90deg, rgba(26, 26, 26, 0.06), rgba(27, 67, 50, 0.38) 48%, rgba(27, 67, 50, 0.82)),
+    linear-gradient(180deg, rgba(26, 26, 26, 0.08), rgba(26, 26, 26, 0.52));
 }
 
 .hero-content {
@@ -168,6 +169,7 @@ h1 {
   font-size: clamp(4.5rem, 12vw, 11rem);
   line-height: 0.88;
   letter-spacing: 0;
+  font-family: Inter, Poppins, system-ui, sans-serif;
 }
 
 h2 {
@@ -176,6 +178,7 @@ h2 {
   font-size: clamp(2.2rem, 4.8vw, 4.8rem);
   line-height: 0.98;
   letter-spacing: 0;
+  font-family: Inter, Poppins, system-ui, sans-serif;
 }
 
 h3 {
@@ -211,7 +214,7 @@ p {
 }
 
 .button.primary {
-  background: var(--red);
+  background: var(--green);
   color: #fff;
 }
 
@@ -225,9 +228,9 @@ p {
   width: min(560px, calc(100vw - 2.4rem));
   margin: 8vh 0 0 auto;
   padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(232, 244, 238, 0.22);
   border-radius: 8px;
-  background: rgba(10, 16, 18, 0.62);
+  background: rgba(27, 67, 50, 0.7);
   box-shadow: var(--shadow);
   backdrop-filter: blur(16px);
 }
@@ -310,7 +313,7 @@ p {
 }
 
 .table-row strong {
-  color: var(--green);
+  color: var(--green-dark);
   font-size: 1.08rem;
 }
 
@@ -365,7 +368,7 @@ p {
 .timeline span {
   display: inline-flex;
   margin-bottom: 1.4rem;
-  color: var(--red-dark);
+  color: var(--green);
   font-size: 0.82rem;
   font-weight: 800;
 }
@@ -385,7 +388,7 @@ p {
 
 .score-card.selected {
   color: #fff;
-  background: var(--green);
+  background: var(--green-dark);
 }
 
 .score-card.selected p,
@@ -408,7 +411,7 @@ p {
 
 .explain-grid article {
   padding-top: 1.4rem;
-  border-top: 3px solid var(--red);
+  border-top: 3px solid var(--green);
 }
 
 .examples-section {
@@ -481,7 +484,7 @@ p {
 }
 
 .dataset-section {
-  background: #26201a;
+  background: var(--green-dark);
   color: #fff;
 }
 
@@ -502,7 +505,7 @@ pre {
   overflow: auto;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
-  background: #111315;
+  background: #102b21;
   color: #e9f1ed;
   line-height: 1.8;
 }
@@ -572,7 +575,7 @@ pre code {
   gap: 1rem;
   padding: 1.2rem clamp(1.2rem, 5vw, 5rem);
   color: rgba(255, 255, 255, 0.76);
-  background: #111315;
+  background: #102b21;
   font-size: 0.92rem;
 }
 
