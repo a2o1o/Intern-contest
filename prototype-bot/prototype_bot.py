@@ -41,9 +41,10 @@ INDEX_HTML = """<!doctype html>
   <title>Vera Prototype Bot</title>
   <style>
     :root{--green:#173f2f;--accent:#2d6a4f;--paper:#f7f5f0;--line:#e6e1d8;--muted:#66645f;--chat:#efe7dc}
-    body{font-family:Inter,system-ui,sans-serif;margin:0;background:var(--paper);color:#171717}
-    main{max-width:1120px;margin:0 auto;padding:28px 18px}
-    h1{font-size:38px;line-height:1;margin:0 0 10px}
+    html,body{height:100%}
+    body{font-family:Inter,system-ui,sans-serif;margin:0;background:var(--paper);color:#171717;overflow:hidden}
+    main{height:100vh;display:grid;grid-template-rows:auto 1fr;padding:18px;box-sizing:border-box}
+    h1{font-size:30px;line-height:1;margin:0 0 6px}
     h2{font-size:24px;margin:0 0 12px}
     p{color:var(--muted);line-height:1.55}
     button,select,input,textarea{font:inherit}
@@ -55,75 +56,86 @@ INDEX_HTML = """<!doctype html>
     textarea{width:100%;min-height:160px;box-sizing:border-box;line-height:1.45}
     pre{white-space:pre-wrap;background:#102b21;color:#fff;border-radius:8px;padding:14px;overflow:auto}
     .muted{font-size:13px;color:var(--muted)}
-    .shell{display:grid;grid-template-columns:minmax(320px,410px) 1fr;gap:18px;align-items:start;margin-top:18px}
-    .panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px}
-    .phone{background:#111;border-radius:24px;padding:10px;box-shadow:0 20px 55px rgba(23,63,47,.22)}
-    .screen{height:720px;max-height:calc(100vh - 80px);min-height:560px;background:var(--chat);border-radius:18px;overflow:hidden;display:grid;grid-template-rows:auto 1fr auto}
+    .intro{display:flex;justify-content:space-between;gap:18px;align-items:end;margin-bottom:14px}
+    .intro p{max-width:760px;margin:0}
+    .shell{min-height:0;display:grid;grid-template-columns:320px minmax(420px,1fr) 360px;gap:0;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:0 18px 50px rgba(23,63,47,.16)}
+    .panel{background:#fff;border-left:1px solid var(--line);padding:18px;overflow:auto}
+    .leftbar{background:#f8f6f1;border-right:1px solid var(--line);display:grid;grid-template-rows:auto 1fr;min-height:0}
+    .leftTop{padding:18px;border-bottom:1px solid var(--line)}
+    .scenarioList{overflow:auto;padding:10px}
+    .scenarioItem{width:100%;text-align:left;background:#fff;color:#171717;border:1px solid #e5ded2;border-radius:8px;padding:12px;margin-bottom:8px;font-weight:750}
+    .scenarioItem.active{border-color:#2d6a4f;background:#e8f0ee;color:#173f2f}
+    .chatArea{min-height:0;background:var(--chat);display:grid;grid-template-rows:auto 1fr auto}
     .chatHead{background:#173f2f;color:#fff;padding:14px 16px;display:flex;gap:12px;align-items:center}
     .avatar{width:38px;height:38px;border-radius:50%;background:#e8f0ee;color:#173f2f;display:grid;place-items:center;font-weight:900}
     .chatTitle{font-weight:900}
     .status{font-size:12px;color:#cfe2d8;margin-top:2px}
-    .scenario{background:#fff;border-bottom:1px solid #ddd3c4;padding:12px}
-    .scenario .row{display:flex;gap:10px;margin-top:8px}
-    .scenario button{white-space:nowrap}
-    .messages{padding:18px 12px;overflow:auto;display:flex;flex-direction:column;gap:10px;background:
+    .messages{padding:28px clamp(24px,5vw,80px);overflow:auto;display:flex;flex-direction:column;gap:10px;background:
       linear-gradient(rgba(239,231,220,.92),rgba(239,231,220,.92)),
       radial-gradient(circle at 20% 15%,rgba(45,106,79,.10) 0 2px,transparent 3px)}
-    .bubble{border-radius:9px;padding:10px 12px;line-height:1.42;max-width:82%;box-shadow:0 1px 1px rgba(0,0,0,.08);font-size:15px}
+    .bubble{border-radius:9px;padding:11px 13px;line-height:1.42;max-width:min(680px,72%);box-shadow:0 1px 1px rgba(0,0,0,.08);font-size:15px}
     .bot{align-self:flex-start;background:#fff;color:#171717;border-top-left-radius:2px}
     .merchant{align-self:flex-end;background:#d9fdd3;color:#171717;border-top-right-radius:2px}
     .meta{display:block;text-align:right;color:#777;font-size:10px;margin-top:5px}
     .empty{margin:auto;text-align:center;color:#4d4a43;background:rgba(255,255,255,.7);padding:18px;border-radius:10px;max-width:270px}
-    .composer{background:#f5efe7;border-top:1px solid #ddd3c4;padding:10px;display:grid;gap:9px}
+    .composer{background:#f5efe7;border-top:1px solid #ddd3c4;padding:12px clamp(18px,4vw,56px);display:grid;gap:9px}
     .quickRow{display:flex;gap:7px;overflow:auto;padding-bottom:2px}
     .sendRow{display:grid;grid-template-columns:1fr auto;gap:8px}
-    .sendRow input{min-width:0;border-radius:999px;padding:11px 14px}
+    .sendRow input{min-width:0;border-radius:999px;padding:12px 16px}
     .sendRow button{border-radius:999px;min-width:58px}
     .judge{display:grid;gap:14px}
     .label{font-size:12px;font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px}
     details{margin-top:12px}
     summary{cursor:pointer;color:var(--accent);font-weight:900}
     code{background:#f2eee6;border-radius:4px;padding:1px 5px}
-    @media(max-width:880px){.shell{grid-template-columns:1fr}.screen{height:680px;max-height:none}h1{font-size:32px}}
+    @media(max-width:1100px){body{overflow:auto}main{height:auto}.shell{grid-template-columns:280px 1fr}.judge{display:none}.chatArea{min-height:720px}}
+    @media(max-width:760px){main{padding:10px}.intro{display:block}.shell{grid-template-columns:1fr}.leftbar{display:none}.chatArea{min-height:calc(100vh - 120px)}h1{font-size:28px}.bubble{max-width:88%}.messages{padding:18px 12px}.composer{padding:10px}}
   </style>
 </head>
 <body>
   <main>
-    <h1>Vera Prototype Bot</h1>
-    <p>Test the candidate experience as a chat, not as raw API calls. Select a scenario, start the assistant, reply like a merchant, then export the transcript for judging.</p>
+    <div class="intro">
+      <div>
+        <h1>Vera Prototype Bot</h1>
+        <p>Test the candidate experience as a chat, not as raw API calls. Select a scenario, start the assistant, reply like a merchant, then export the transcript for judging.</p>
+      </div>
+      <button onclick="tick()">Start selected scenario</button>
+    </div>
     <div class="shell">
-      <section class="phone" aria-label="Chat demo">
-        <div class="screen">
-          <div class="chatHead">
-            <div class="avatar">V</div>
-            <div>
-              <div class="chatTitle">Vera assistant</div>
-              <div class="status" id="status">Ready for scenario</div>
-            </div>
+      <aside class="leftbar">
+        <div class="leftTop">
+          <h2>Scenarios</h2>
+          <p class="muted">Choose one test trigger, then start the chat.</p>
+          <select id="trigger"></select>
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button onclick="tick()">Start chat</button>
+            <button class="secondary" onclick="resetDemo()">Reset</button>
           </div>
-          <div class="scenario">
-            <div class="label">Scenario</div>
-            <select id="trigger"></select>
-            <div class="row">
-              <button onclick="tick()">Start chat</button>
-              <button class="secondary" onclick="resetDemo()">Reset</button>
-            </div>
+        </div>
+        <div id="scenarioList" class="scenarioList"></div>
+      </aside>
+      <section class="chatArea" aria-label="Chat demo">
+        <div class="chatHead">
+          <div class="avatar">V</div>
+          <div>
+            <div class="chatTitle">Vera assistant</div>
+            <div class="status" id="status">Ready for scenario</div>
           </div>
-          <div id="messages" class="messages">
-            <div class="empty">Pick a scenario and press Start chat. The bot's first message will appear here.</div>
+        </div>
+        <div id="messages" class="messages">
+          <div class="empty">Pick a scenario and press Start chat. The bot's first message will appear here.</div>
+        </div>
+        <div class="composer">
+          <div class="quickRow">
+            <button class="quick" onclick="sendQuick('Yes please send it')">Interested</button>
+            <button class="quick" onclick="sendQuick('Thank you for contacting us. We will get back to you soon.')">Auto-reply</button>
+            <button class="quick" onclick="sendQuick('How much will this cost?')">Pricing</button>
+            <button class="quick" onclick="sendQuick('Can you also help me file GST?')">Off-topic</button>
+            <button class="quick" onclick="sendQuick('Not interested')">Decline</button>
           </div>
-          <div class="composer">
-            <div class="quickRow">
-              <button class="quick" onclick="sendQuick('Yes please send it')">Interested</button>
-              <button class="quick" onclick="sendQuick('Thank you for contacting us. We will get back to you soon.')">Auto-reply</button>
-              <button class="quick" onclick="sendQuick('How much will this cost?')">Pricing</button>
-              <button class="quick" onclick="sendQuick('Can you also help me file GST?')">Off-topic</button>
-              <button class="quick" onclick="sendQuick('Not interested')">Decline</button>
-            </div>
-            <div class="sendRow">
-              <input id="msg" placeholder="Type merchant reply" value="Yes please send it" onkeydown="if(event.key==='Enter') reply()" />
-              <button onclick="reply()">Send</button>
-            </div>
+          <div class="sendRow">
+            <input id="msg" placeholder="Type merchant reply" value="Yes please send it" onkeydown="if(event.key==='Enter') reply()" />
+            <button onclick="reply()">Send</button>
           </div>
         </div>
       </section>
@@ -174,7 +186,22 @@ POST /v1/reply</pre>
       const select = document.getElementById('trigger');
       triggerMap = Object.fromEntries(data.triggers.map(t => [t.id, t]));
       select.innerHTML = data.triggers.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(triggerLabel(t))}</option>`).join('');
+      document.getElementById('scenarioList').innerHTML = data.triggers.slice(0, 30).map(t => `
+        <button class="scenarioItem" data-trigger="${escapeHtml(t.id)}" onclick="selectScenario('${escapeHtml(t.id)}')">
+          ${escapeHtml(t.kind || 'trigger')}<br>
+          <span class="muted">${escapeHtml((t.merchant_id || '').replace(/^m_\\d+_/, '').replaceAll('_', ' '))}</span>
+        </button>
+      `).join('');
+      select.addEventListener('change', () => selectScenario(select.value, false));
+      selectScenario(select.value, false);
       document.getElementById('tickOut').textContent = JSON.stringify(data, null, 2);
+      updateTranscript();
+    }
+    function selectScenario(id, updateSelect = true){
+      if(updateSelect) document.getElementById('trigger').value = id;
+      document.querySelectorAll('.scenarioItem').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.trigger === id);
+      });
       updateTranscript();
     }
     function setStatus(text){
