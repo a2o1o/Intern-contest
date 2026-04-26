@@ -27,7 +27,6 @@
         <a href="#rubric">Rubric</a>
         <a href="#examples">Examples</a>
         <a href="#testing">Testing</a>
-        <a href="#selection">Selection</a>
         <a href="#package">Package</a>
         <a href="#submit">Submit</a>
       </nav>
@@ -470,82 +469,6 @@ examples/
               and full scenarios before submission.
             </p>
           </div>
-        </div>
-      </section>
-
-      <section id="selection" class="section selection-section">
-        <div class="section-heading wide">
-          <p class="eyebrow">Selection funnel</p>
-          <h2>How 1,000 participants are reduced to the top 10.</h2>
-          <p>
-            The selection process is staged. Cheap contract checks run first, then structured message scoring,
-            then adaptive tests, then deep replay. Every decision is logged with evidence so the final ranking is
-            auditable and consistent.
-          </p>
-        </div>
-
-        <div class="funnel">
-          <article>
-            <span>1,000</span>
-            <h3>Submission gate</h3>
-            <p>Reject unreachable bots, missing endpoints, failed auth, invalid metadata, malformed JSON, or warmup failure.</p>
-          </article>
-          <article>
-            <span>~700</span>
-            <h3>Contract test</h3>
-            <p>Run the local simulator scenarios for schema compliance, latency, context persistence, and response validity.</p>
-          </article>
-          <article>
-            <span>250</span>
-            <h3>Canonical test</h3>
-            <p>Score 30 fixed trigger cases using the same rubric for every participant. Keep the strongest message composers.</p>
-          </article>
-          <article>
-            <span>75</span>
-            <h3>Adaptive test</h3>
-            <p>Inject fresh digest, performance, trigger, and customer context. Reward bots that update behavior without hallucinating.</p>
-          </article>
-          <article>
-            <span>25</span>
-            <h3>Replay test</h3>
-            <p>Run multi-turn merchant simulations: auto-reply hell, intent transition, hostile/off-topic, and customer recall.</p>
-          </article>
-          <article>
-            <span>10</span>
-            <h3>Robustness final</h3>
-            <p>Repeat randomized equivalent scenarios, add timeout pressure and restraint cases, then rank by aggregate score.</p>
-          </article>
-        </div>
-
-        <div class="formula-board">
-          <div>
-            <h3>Final score formula</h3>
-            <pre><code>45% message quality
- 20% adaptive context use
- 20% multi-turn handling
- 10% operational reliability
-  5% restraint / anti-spam
-- penalties</code></pre>
-          </div>
-          <div>
-            <h3>Hard penalties</h3>
-            <ul class="penalty-list">
-              <li>Hallucinated fact or fake citation</li>
-              <li>URL in message body</li>
-              <li>Body over 320 characters</li>
-              <li>Missing auth or repeated health failures</li>
-              <li>Repeated identical body in one conversation</li>
-              <li>Ignoring not-interested or explicit yes intent</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="automation-note">
-          <h3>Judge design principle</h3>
-          <p>
-            The judge does not directly “pick winners.” It scores each message and conversation against
-            structured dimensions with cited evidence. Ranking happens numerically from those logged scores.
-          </p>
         </div>
       </section>
 
