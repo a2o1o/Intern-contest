@@ -23,7 +23,7 @@ from urllib.parse import urlparse
 START = time.time()
 TOKEN = os.environ.get("MAGICPIN_JUDGE_TOKEN", "local_dev_token")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost:8080")
 LAST_GEMINI_STATUS = {"ok": False, "error": None}
 
