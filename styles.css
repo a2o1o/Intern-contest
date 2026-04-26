@@ -648,109 +648,6 @@ pre code {
   color: rgba(255, 255, 255, 0.74);
 }
 
-.selection-section {
-  background: #fff;
-}
-
-.funnel {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.funnel article {
-  position: relative;
-  min-height: 250px;
-  padding: 1.2rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.funnel article::after {
-  content: "";
-  position: absolute;
-  top: 2.15rem;
-  right: -0.62rem;
-  width: 1rem;
-  height: 1rem;
-  border-top: 2px solid var(--green);
-  border-right: 2px solid var(--green);
-  transform: rotate(45deg);
-  background: #fff;
-}
-
-.funnel article:last-child {
-  color: #fff;
-  background: var(--green-dark);
-}
-
-.funnel article:last-child::after {
-  display: none;
-}
-
-.funnel span {
-  display: block;
-  margin-bottom: 1.4rem;
-  color: var(--red);
-  font-family: Inter, Poppins, system-ui, sans-serif;
-  font-size: clamp(1.7rem, 3vw, 2.35rem);
-  font-weight: 800;
-  line-height: 1;
-}
-
-.funnel article:last-child span,
-.funnel article:last-child p {
-  color: rgba(255, 255, 255, 0.78);
-}
-
-.formula-board {
-  display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.formula-board > div,
-.automation-note {
-  padding: 1.3rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-2);
-}
-
-.formula-board pre {
-  background: #102b21;
-}
-
-.penalty-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.penalty-list li {
-  padding: 0.7rem;
-  border-radius: 7px;
-  background: #fff;
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.45;
-}
-
-.automation-note {
-  background: var(--green-soft);
-}
-
-.automation-note p {
-  max-width: 900px;
-  margin-bottom: 0;
-}
-
 .apply-section {
   display: grid;
   grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1fr);
@@ -802,13 +699,8 @@ pre code {
   .endpoint-grid,
   .test-flow,
   .rules-strip,
-  .funnel,
   .package-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .funnel article::after {
-    display: none;
   }
 
   .score-card {
@@ -856,9 +748,6 @@ pre code {
   .test-flow,
   .rules-strip,
   .deployment-panel,
-  .formula-board,
-  .penalty-list,
-  .funnel,
   .package-grid,
   .run-card,
   .package-layout,
