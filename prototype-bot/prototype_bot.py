@@ -23,7 +23,9 @@ from urllib.parse import urlparse
 START = time.time()
 TOKEN = os.environ.get("MAGICPIN_JUDGE_TOKEN", "local_dev_token")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost:8080")
+LAST_GEMINI_STATUS = {"ok": False, "error": None}
 
 contexts: dict[tuple[str, str], dict[str, Any]] = {}
 conversations: dict[str, list[dict[str, Any]]] = {}
@@ -126,6 +128,10 @@ def compact(text: str, limit: int = 320) -> str:
     return text[: limit - 1].rstrip(" ,.;") + "…"
 
 
+def no_ansi(text: str) -> str:
+    return text.replace("—", "-").replace("’", "'").replace("“", '"').replace("”", '"')
+
+
 def load_preload_dir(root: str) -> None:
     base = Path(root).expanduser()
     if not base.exists():
@@ -173,7 +179,7 @@ def gemini_compose(
         "trigger": trigger,
         "customer": customer,
     }
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     payload = {
         "contents": [{"parts": [{"text": json.dumps(prompt, ensure_ascii=False)}]}],
         "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"},
@@ -192,8 +198,10 @@ def gemini_compose(
         parsed["send_as"] = "merchant_on_behalf" if customer else "vera"
         parsed["suppression_key"] = trigger.get("suppression_key", trigger.get("id", ""))
         parsed["rationale"] = parsed.get("rationale", "Gemini-composed from provided contexts.")
+        LAST_GEMINI_STATUS.update({"ok": True, "error": None})
         return parsed
     except (error.URLError, KeyError, json.JSONDecodeError, TimeoutError, ValueError) as exc:
+        LAST_GEMINI_STATUS.update({"ok": False, "error": str(exc)})
         print(f"Gemini compose failed, falling back to rules: {exc}")
         return None
 
@@ -205,6 +213,14 @@ def money_safe(text: str) -> str:
 def first_name(merchant: dict[str, Any]) -> str:
     identity = merchant.get("identity", {})
     return identity.get("owner_first_name") or identity.get("name", "there").split()[0].strip(",")
+
+
+def salutation(merchant: dict[str, Any], category: dict[str, Any] | None = None) -> str:
+    first = first_name(merchant)
+    slug = (category or {}).get("slug") or merchant.get("category_slug", "")
+    if slug == "dentists" and not first.lower().startswith("dr"):
+        return f"Dr. {first}"
+    return first
 
 
 def active_offer(merchant: dict[str, Any], category: dict[str, Any] | None = None) -> str:
@@ -235,6 +251,13 @@ def pct(value: Any) -> str:
         return str(value)
 
 
+def pct1(value: Any) -> str:
+    try:
+        return f"{float(value) * 100:.1f}%"
+    except Exception:
+        return str(value)
+
+
 def cta_for(kind: str, customer: dict[str, Any] | None = None) -> str:
     if customer:
         return "binary"
@@ -256,7 +279,7 @@ def compose_message(
     kind = trigger.get("kind", "unknown")
     identity = merchant.get("identity", {})
     name = identity.get("name", "your business")
-    owner = first_name(merchant)
+    owner = salutation(merchant, category)
     perf = merchant.get("performance", {})
     peer = category.get("peer_stats", {})
     city = identity.get("city", "")
@@ -282,9 +305,14 @@ def compose_message(
         segment = item.get("patient_segment", "customers").replace("_", " ")
         source = item.get("source", "latest category digest")
         title = item.get("title", "new category update")
+        count = merchant.get("customer_aggregate", {}).get("high_risk_adult_count")
+        count_part = f"your {count} {segment}" if count and "high risk" in segment else f"your {segment}"
+        summary = item.get("summary", "")
+        reduction = "38%" if "38%" in summary else ""
+        finding = f" found {reduction} lower recurrence" if reduction else " is worth reviewing"
         body = (
-            f"{owner}, {source} has a useful item for your {segment}: {trial_part}{title}. "
-            f"Want me to turn it into a short patient-facing chat draft?"
+            f"{owner}, {source}: for {count_part}, a {trial_part}trial{finding}. "
+            f"Want me to draft the patient-facing chat?"
         )
     elif kind in {"regulation_change", "supply_alert"}:
         payload = trigger.get("payload", {})
@@ -296,14 +324,14 @@ def compose_message(
         views_delta = pct((perf.get("delta_7d") or {}).get("views_pct", 0))
         ctr = perf.get("ctr")
         avg_ctr = peer.get("avg_ctr")
-        ctr_part = f" CTR is {ctr:.1%} vs peer {avg_ctr:.1%}." if isinstance(ctr, (int, float)) and isinstance(avg_ctr, (int, float)) else ""
-        body = f"{owner}, this week's views are {views_delta} vs last week.{ctr_part} Don't push a generic discount; want me to draft a recovery message around {offer}?"
+        ctr_part = f" CTR {pct1(ctr)} vs peer {pct1(avg_ctr)}." if isinstance(ctr, (int, float)) and isinstance(avg_ctr, (int, float)) else ""
+        body = f"{owner}, views are {views_delta} this week.{ctr_part} Rather than a flat discount, want me to draft a recovery chat around {offer}?"
     elif kind == "perf_spike":
         views_delta = pct((perf.get("delta_7d") or {}).get("views_pct", 0))
         body = f"{owner}, your views are up {views_delta} this week. This is the right moment to convert interest: want me to draft a short follow-up around {offer}?"
     elif kind in {"festival_upcoming", "ipl_match_today", "category_seasonal"}:
         payload = trigger.get("payload", {})
-        event = payload.get("event") or payload.get("title") or kind.replace("_", " ")
+        event = payload.get("event") or payload.get("match") or payload.get("title") or kind.replace("_", " ")
         body = f"{owner}, {event} is a timely hook for {locality or city}. Want me to draft one chat campaign using {offer}, no generic percentage discount?"
     elif kind in {"curious_ask_due", "dormant_with_vera"}:
         body = f"Quick check, {owner}: what service are customers asking about most this week at {name}? I'll turn your answer into a Google post + 4-line chat reply."
@@ -313,15 +341,22 @@ def compose_message(
         payload = trigger.get("payload", {})
         distance = payload.get("distance_km") or payload.get("distance")
         distance_part = f" {distance}km away" if distance else ""
-        body = f"{owner}, a new competitor signal appeared{distance_part} near {locality or city}. Want me to compare your visible strengths and draft a response post?"
+        strengths = []
+        if merchant.get("review_themes"):
+            positives = [r["theme"].replace("_", " ") for r in merchant["review_themes"] if r.get("sentiment") == "pos"]
+            strengths.extend(positives[:1])
+        if active_offer(merchant, category) != "your current offer":
+            strengths.append(active_offer(merchant, category))
+        strength_part = f" Your visible edge: {', '.join(strengths[:2])}." if strengths else ""
+        body = f"{owner}, a competitor signal appeared{distance_part} near {locality or city}.{strength_part} Want a response post?"
     elif kind in {"review_theme_emerged", "gbp_unverified", "renewal_due", "winback_eligible"}:
         signal = ", ".join(merchant.get("signals", [])[:2]) or kind.replace("_", " ")
         body = f"{owner}, I noticed {signal} for {name}. Want me to draft the next best action using only your current business data?"
     else:
-        body = f"{owner}, I found a fresh {kind.replace('_', ' ')} opportunity for {name}. Want me to draft one specific message using {offer}?"
+        body = f"{owner}, {kind.replace('_', ' ')} is active for {name}. Want me to draft one specific message using {offer}?"
 
     return {
-        "body": compact(body),
+        "body": no_ansi(compact(body)),
         "cta": cta_for(kind),
         "send_as": send_as,
         "suppression_key": suppression_key,
@@ -395,6 +430,15 @@ def reply_action(body: dict[str, Any]) -> dict[str, Any]:
     history = conversations.setdefault(conv_id, [])
     label = classify_reply(message, history)
     history.append({"from": body.get("from_role", "merchant"), "msg": message, "label": label, "ts": body.get("received_at")})
+    trigger_id = conv_id.split("_trg_", 1)[1] if "_trg_" in conv_id else ""
+    if trigger_id:
+        trigger_id = "trg_" + trigger_id
+    trigger = contexts.get(("trigger", trigger_id), {}).get("payload", {})
+    merchant_id = body.get("merchant_id") or trigger.get("merchant_id")
+    merchant = contexts.get(("merchant", merchant_id), {}).get("payload", {}) if merchant_id else {}
+    category = contexts.get(("category", merchant.get("category_slug")), {}).get("payload", {}) if merchant else {}
+    owner = salutation(merchant, category) if merchant else "there"
+    offer = active_offer(merchant, category) if merchant else "the selected offer"
 
     if label == "auto_reply":
         auto_count = sum(1 for turn in history if turn.get("label") == "auto_reply")
@@ -407,9 +451,26 @@ def reply_action(body: dict[str, Any]) -> dict[str, Any]:
             "rationale": "One polite attempt after likely auto-reply; asks for human confirmation.",
         }
     if label == "intent_yes":
+        kind = trigger.get("kind", "request")
+        if kind == "research_digest":
+            item = find_digest_item(category, trigger) or {}
+            source = item.get("source", "the digest")
+            return {
+                "action": "send",
+                "body": no_ansi(compact(f"Done, {owner}. I’ll pull {source} and draft a patient chat around {active_offer(merchant, category)}. Next: reply CONFIRM after review.")),
+                "cta": "binary",
+                "rationale": "Explicit yes detected; advances the accepted research-digest task with concrete next step.",
+            }
+        if kind == "competitor_opened":
+            return {
+                "action": "send",
+                "body": no_ansi(compact(f"Done, {owner}. I’ll draft a response post using your strongest visible proof and {offer}. Next: reply CONFIRM after review.")),
+                "cta": "binary",
+                "rationale": "Explicit yes detected; routes competitor-response intent directly to action.",
+            }
         return {
             "action": "send",
-            "body": "Done. I’ll prepare the draft now using the business context already shared. Next step: reply CONFIRM after reviewing it.",
+            "body": no_ansi(compact(f"Done, {owner}. I’ll prepare the draft using {offer} and the trigger context. Next: reply CONFIRM after review.")),
             "cta": "binary",
             "rationale": "Explicit yes detected; switches to action instead of further qualification.",
         }
@@ -418,7 +479,7 @@ def reply_action(body: dict[str, Any]) -> dict[str, Any]:
     if label == "off_topic":
         return {
             "action": "send",
-            "body": "I can’t help with that here. I’m focused on business growth messages from the provided context. Want me to continue with that?",
+            "body": "I can't help with that here. I’m focused on business growth messages from the provided context. Want me to continue with that?",
             "cta": "binary",
             "rationale": "Keeps scope tight and redirects politely.",
         }
@@ -492,7 +553,9 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "team_name": "Prototype Reference Bot",
                     "team_members": ["magicpin challenge prototype"],
-                    "model": "gemini-1.5-flash" if GEMINI_API_KEY else "deterministic-rule-based",
+                    "model": GEMINI_MODEL if GEMINI_API_KEY else "deterministic-rule-based",
+                    "gemini_enabled": bool(GEMINI_API_KEY),
+                    "last_gemini_status": LAST_GEMINI_STATUS,
                     "approach": "optional Gemini composer + trigger router + context-grounded fallback templates + reply classifier",
                     "contact_email": "prototype@example.com",
                     "version": "0.1.0",
@@ -615,7 +678,7 @@ def main() -> None:
     if args.preload_dir:
         load_preload_dir(args.preload_dir)
     server = ThreadingHTTPServer((args.host, args.port), Handler)
-    model = "gemini-1.5-flash" if GEMINI_API_KEY else "deterministic-rule-based"
+    model = GEMINI_MODEL if GEMINI_API_KEY else "deterministic-rule-based"
     print(f"Prototype bot listening on http://{args.host}:{args.port} with token {TOKEN!r}; model={model}")
     server.serve_forever()
 

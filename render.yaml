@@ -10,5 +10,7 @@ services:
         generateValue: true
       - key: GEMINI_API_KEY
         sync: false
+      - key: GEMINI_MODEL
+        value: gemini-1.5-flash
       - key: PUBLIC_URL
         value: https://intern-contest-prototype-bot.onrender.com
