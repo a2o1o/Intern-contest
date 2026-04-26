@@ -28,6 +28,7 @@
         <a href="#examples">Examples</a>
         <a href="#testing">Testing</a>
         <a href="#selection">Selection</a>
+        <a href="#package">Package</a>
         <a href="#submit">Submit</a>
       </nav>
       <a class="nav-cta" href="#apply">Apply soon</a>
@@ -310,6 +311,96 @@ test_set/     30 canonical pairs for like-for-like judging</code></pre>
               Submit <code>bot.py</code>, <code>submission.jsonl</code>, and a one-page <code>README.md</code>.
               Optional multi-turn handling can be added in <code>conversation_handlers.py</code>.
             </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="package" class="section package-section">
+        <div class="section-heading wide">
+          <p class="eyebrow">Candidate starter package</p>
+          <h2>Everything a team needs to extract, expand, test, and start building.</h2>
+          <p>
+            The downloadable zip combines the product brief, testing contract, deterministic data generator,
+            endpoint examples, and judge-scored case studies. Candidates can start from the same package the
+            judge harness is built against.
+          </p>
+          <a class="button package-download" href="./assets/magicpin-ai-internship-challenge.zip" download>
+            Download challenge zip
+          </a>
+        </div>
+
+        <div class="package-grid">
+          <article>
+            <span>Root briefs</span>
+            <h3>4 documents</h3>
+            <p>
+              <code>engagement-design.md</code>, <code>engagement-research.md</code>,
+              <code>internship-challenge-brief.md</code>, and <code>internship-challenge-testing-brief.md</code>.
+            </p>
+          </article>
+          <article>
+            <span>Dataset seeds</span>
+            <h3>5 categories + seeds</h3>
+            <p>
+              Fully populated category contexts plus 10 merchant seeds, 15 customer seeds, and 25 trigger seeds.
+            </p>
+          </article>
+          <article>
+            <span>Generator</span>
+            <h3>Deterministic expansion</h3>
+            <p>
+              <code>generate_dataset.py</code> expands the seed package to 50 merchants, 200 customers,
+              100 triggers, and 30 canonical test pairs.
+            </p>
+          </article>
+          <article>
+            <span>Examples</span>
+            <h3>API + scoring anchors</h3>
+            <p>
+              Endpoint request/response examples and 10 case studies showing full inputs, messages,
+              compulsion levers, and scorecards.
+            </p>
+          </article>
+        </div>
+
+        <div class="run-card">
+          <div>
+            <h3>One command after extraction</h3>
+            <p>Every candidate uses the same seed and gets the same expanded base dataset.</p>
+          </div>
+          <pre><code>python3 dataset/generate_dataset.py --seed-dir dataset --out expanded</code></pre>
+        </div>
+
+        <div class="package-layout">
+          <pre><code>magicpin-ai-internship-challenge/
+engagement-design.md
+engagement-research.md
+internship-challenge-brief.md
+internship-challenge-testing-brief.md
+dataset/
+  categories/
+    dentists.json
+    salons.json
+    restaurants.json
+    gyms.json
+    pharmacies.json
+  merchants_seed.json
+  customers_seed.json
+  triggers_seed.json
+  generate_dataset.py
+examples/
+  api-call-examples.md
+  case-studies.md</code></pre>
+
+          <div class="case-list">
+            <h3>10 case-study anchors</h3>
+            <ul>
+              <li>Dentists: research digest + recall reminder</li>
+              <li>Salons: bridal followup + curious ask</li>
+              <li>Restaurants: IPL match day + corporate thali planning</li>
+              <li>Gyms: seasonal dip reframe + customer lapse winback</li>
+              <li>Pharmacies: compliance alert + chronic refill reminder</li>
+            </ul>
           </div>
         </div>
       </section>

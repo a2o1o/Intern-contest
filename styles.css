@@ -521,6 +521,86 @@ pre code {
   color: var(--ink);
 }
 
+.package-section {
+  background: var(--paper);
+}
+
+.package-download {
+  margin-top: 0.3rem;
+  background: var(--green);
+  color: #fff;
+}
+
+.package-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.package-grid article,
+.run-card,
+.case-list {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.package-grid article {
+  min-height: 225px;
+  padding: 1.2rem;
+}
+
+.package-grid span {
+  display: inline-flex;
+  margin-bottom: 1.2rem;
+  color: var(--red);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.run-card {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1.3fr);
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 1.2rem;
+  background: var(--green-soft);
+}
+
+.run-card pre {
+  padding: 1rem;
+}
+
+.package-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.case-list {
+  padding: 1.3rem;
+}
+
+.case-list ul {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.case-list li {
+  padding: 0.78rem;
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .timeline-section {
   background: #fff;
 }
@@ -797,7 +877,8 @@ pre code {
   .endpoint-grid,
   .test-flow,
   .rules-strip,
-  .funnel {
+  .funnel,
+  .package-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -854,6 +935,9 @@ pre code {
   .formula-board,
   .penalty-list,
   .funnel,
+  .package-grid,
+  .run-card,
+  .package-layout,
   .apply-section,
   .logistics {
     grid-template-columns: 1fr;
