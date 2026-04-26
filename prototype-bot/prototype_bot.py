@@ -51,6 +51,10 @@ INDEX_HTML = """<!doctype html>
     select,input{border:1px solid #d0ccc4;border-radius:8px;padding:10px;background:white;min-width:260px}
     pre{white-space:pre-wrap;background:#102b21;color:#fff;border-radius:8px;padding:14px;overflow:auto}
     .muted{font-size:13px;color:#6a6a6a}
+    .clean{background:#e8f0ee;border:1px solid #c9ded5;border-radius:8px;padding:14px;margin:12px 0;color:#1b4332;font-size:20px;line-height:1.45;font-weight:650}
+    .label{font-size:12px;font-weight:800;color:#2d6a4f;text-transform:uppercase;margin-top:14px}
+    details{margin-top:12px}
+    summary{cursor:pointer;color:#2d6a4f;font-weight:800}
   </style>
 </head>
 <body>
@@ -64,7 +68,12 @@ INDEX_HTML = """<!doctype html>
         <select id="trigger"></select>
         <button onclick="tick()">Run /v1/tick</button>
       </div>
-      <pre id="tickOut">Loading triggers...</pre>
+      <div class="label">Clean bot message</div>
+      <div id="tickClean" class="clean">Pick a trigger and click Run /v1/tick.</div>
+      <details>
+        <summary>Raw JSON</summary>
+        <pre id="tickOut">Loading triggers...</pre>
+      </details>
     </div>
     <div class="card">
       <h2>Test a merchant reply</h2>
@@ -73,7 +82,12 @@ INDEX_HTML = """<!doctype html>
         <input id="msg" placeholder="merchant reply" value="Yes please send it" />
         <button onclick="reply()">Run /v1/reply</button>
       </div>
-      <pre id="replyOut"></pre>
+      <div class="label">Clean bot reply</div>
+      <div id="replyClean" class="clean">Enter a merchant reply and click Run /v1/reply.</div>
+      <details>
+        <summary>Raw JSON</summary>
+        <pre id="replyOut"></pre>
+      </details>
     </div>
     <div class="card">
       <h2>Judge endpoints</h2>
@@ -97,7 +111,12 @@ POST /v1/reply</pre>
       const res = await fetch('/demo/tick', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({available_triggers:[id]})});
       const data = await res.json();
       document.getElementById('tickOut').textContent = JSON.stringify(data, null, 2);
-      if(data.actions && data.actions[0]) document.getElementById('conv').value = data.actions[0].conversation_id;
+      if(data.actions && data.actions[0]) {
+        document.getElementById('conv').value = data.actions[0].conversation_id;
+        document.getElementById('tickClean').textContent = data.actions[0].body;
+      } else {
+        document.getElementById('tickClean').textContent = 'No message sent for this trigger.';
+      }
     }
     async function reply(){
       const res = await fetch('/demo/reply', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
@@ -109,7 +128,9 @@ POST /v1/reply</pre>
         received_at: new Date().toISOString(),
         turn_number: 2
       })});
-      document.getElementById('replyOut').textContent = JSON.stringify(await res.json(), null, 2);
+      const data = await res.json();
+      document.getElementById('replyOut').textContent = JSON.stringify(data, null, 2);
+      document.getElementById('replyClean').textContent = data.body || `Action: ${data.action}`;
     }
     loadTriggers();
   </script>
