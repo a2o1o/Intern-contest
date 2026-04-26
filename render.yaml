@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: intern-contest-prototype-bot
+    runtime: python
+    plan: free
+    buildCommand: cd prototype-bot && python3 challenge/dataset/generate_dataset.py --seed-dir challenge/dataset --out expanded
+    startCommand: cd prototype-bot && python3 prototype_bot.py --host 0.0.0.0 --port $PORT --preload-dir expanded
+    envVars:
+      - key: MAGICPIN_JUDGE_TOKEN
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PUBLIC_URL
+        value: https://intern-contest-prototype-bot.onrender.com

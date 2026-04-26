@@ -1,0 +1,624 @@
+#!/usr/bin/env python3
+"""Dependency-free prototype candidate bot for the magicpin AI challenge.
+
+Run:
+  MAGICPIN_JUDGE_TOKEN=local_dev_token python3 prototype_bot.py --port 8080
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import time
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+from urllib import error, request
+from urllib.parse import urlparse
+
+
+START = time.time()
+TOKEN = os.environ.get("MAGICPIN_JUDGE_TOKEN", "local_dev_token")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost:8080")
+
+contexts: dict[tuple[str, str], dict[str, Any]] = {}
+conversations: dict[str, list[dict[str, Any]]] = {}
+sent_bodies: dict[str, set[str]] = {}
+used_suppression_keys: set[str] = set()
+
+
+INDEX_HTML = """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vera Prototype Bot</title>
+  <style>
+    body{font-family:Inter,system-ui,sans-serif;margin:0;background:#f7f5f0;color:#1a1a1a}
+    main{max-width:980px;margin:0 auto;padding:32px 18px}
+    h1{font-size:42px;line-height:1;margin:0 0 12px}
+    p{color:#6a6a6a;line-height:1.6}
+    button,select,input{font:inherit}
+    .card{background:#fff;border:1px solid #e8e4dc;border-radius:10px;padding:18px;margin:14px 0}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    button{background:#2d6a4f;color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer}
+    select,input{border:1px solid #d0ccc4;border-radius:8px;padding:10px;background:white;min-width:260px}
+    pre{white-space:pre-wrap;background:#102b21;color:#fff;border-radius:8px;padding:14px;overflow:auto}
+    .muted{font-size:13px;color:#6a6a6a}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Vera Prototype Bot</h1>
+    <p>This URL exposes the challenge HTTP contract and a tiny demo UI. Use it to generate bot messages, paste them into the judging chat, and score the result.</p>
+    <div class="card">
+      <h2>Generate proactive messages</h2>
+      <p class="muted">Uses preloaded dataset triggers if the server was started with <code>--preload-dir</code>.</p>
+      <div class="row">
+        <select id="trigger"></select>
+        <button onclick="tick()">Run /v1/tick</button>
+      </div>
+      <pre id="tickOut">Loading triggers...</pre>
+    </div>
+    <div class="card">
+      <h2>Test a merchant reply</h2>
+      <div class="row">
+        <input id="conv" placeholder="conversation_id from tick output" />
+        <input id="msg" placeholder="merchant reply" value="Yes please send it" />
+        <button onclick="reply()">Run /v1/reply</button>
+      </div>
+      <pre id="replyOut"></pre>
+    </div>
+    <div class="card">
+      <h2>Judge endpoints</h2>
+      <pre>GET  /v1/healthz
+GET  /v1/metadata
+POST /v1/context
+POST /v1/tick
+POST /v1/reply</pre>
+    </div>
+  </main>
+  <script>
+    async function loadTriggers(){
+      const res = await fetch('/demo/triggers');
+      const data = await res.json();
+      const select = document.getElementById('trigger');
+      select.innerHTML = data.triggers.map(t => `<option value="${t.id}">${t.id} — ${t.kind}</option>`).join('');
+      document.getElementById('tickOut').textContent = JSON.stringify(data, null, 2);
+    }
+    async function tick(){
+      const id = document.getElementById('trigger').value;
+      const res = await fetch('/demo/tick', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({available_triggers:[id]})});
+      const data = await res.json();
+      document.getElementById('tickOut').textContent = JSON.stringify(data, null, 2);
+      if(data.actions && data.actions[0]) document.getElementById('conv').value = data.actions[0].conversation_id;
+    }
+    async function reply(){
+      const res = await fetch('/demo/reply', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+        conversation_id: document.getElementById('conv').value,
+        merchant_id: null,
+        customer_id: null,
+        from_role: 'merchant',
+        message: document.getElementById('msg').value,
+        received_at: new Date().toISOString(),
+        turn_number: 2
+      })});
+      document.getElementById('replyOut').textContent = JSON.stringify(await res.json(), null, 2);
+    }
+    loadTriggers();
+  </script>
+</body>
+</html>"""
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def compact(text: str, limit: int = 320) -> str:
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip(" ,.;") + "…"
+
+
+def load_preload_dir(root: str) -> None:
+    base = Path(root).expanduser()
+    if not base.exists():
+        print(f"Preload dir not found: {base}")
+        return
+    specs = [
+        ("category", base / "categories", lambda d: d["slug"]),
+        ("merchant", base / "merchants", lambda d: d["merchant_id"]),
+        ("customer", base / "customers", lambda d: d["customer_id"]),
+        ("trigger", base / "triggers", lambda d: d["id"]),
+    ]
+    loaded = 0
+    for scope, folder, get_id in specs:
+        if not folder.exists():
+            continue
+        for path in folder.glob("*.json"):
+            payload = json.loads(path.read_text())
+            context_id = get_id(payload)
+            contexts[(scope, context_id)] = {"version": 1, "payload": payload, "stored_at": now_iso()}
+            loaded += 1
+    print(f"Preloaded {loaded} contexts from {base}")
+
+
+def gemini_compose(
+    category: dict[str, Any],
+    merchant: dict[str, Any],
+    trigger: dict[str, Any],
+    customer: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not GEMINI_API_KEY:
+        return None
+    prompt = {
+        "task": "Compose one chat message for the magicpin Vera challenge. Return strict JSON only.",
+        "constraints": [
+            "body <= 320 chars",
+            "single primary CTA",
+            "no URLs",
+            "no fabricated facts",
+            "use only provided contexts",
+            "be specific, category-correct, merchant-fit, trigger-relevant, high-compulsion",
+        ],
+        "required_json": {"body": "string", "cta": "binary|open_ended|none", "rationale": "string"},
+        "category": category,
+        "merchant": merchant,
+        "trigger": trigger,
+        "customer": customer,
+    }
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    payload = {
+        "contents": [{"parts": [{"text": json.dumps(prompt, ensure_ascii=False)}]}],
+        "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"},
+    }
+    try:
+        req = request.Request(url, data=json.dumps(payload).encode("utf-8"), method="POST")
+        req.add_header("Content-Type", "application/json")
+        with request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        parsed = json.loads(text)
+        if not parsed.get("body"):
+            return None
+        parsed["body"] = compact(money_safe(parsed["body"]))
+        parsed["cta"] = parsed.get("cta") or cta_for(trigger.get("kind", ""), customer)
+        parsed["send_as"] = "merchant_on_behalf" if customer else "vera"
+        parsed["suppression_key"] = trigger.get("suppression_key", trigger.get("id", ""))
+        parsed["rationale"] = parsed.get("rationale", "Gemini-composed from provided contexts.")
+        return parsed
+    except (error.URLError, KeyError, json.JSONDecodeError, TimeoutError, ValueError) as exc:
+        print(f"Gemini compose failed, falling back to rules: {exc}")
+        return None
+
+
+def money_safe(text: str) -> str:
+    return text.replace("₹", "Rs ")
+
+
+def first_name(merchant: dict[str, Any]) -> str:
+    identity = merchant.get("identity", {})
+    return identity.get("owner_first_name") or identity.get("name", "there").split()[0].strip(",")
+
+
+def active_offer(merchant: dict[str, Any], category: dict[str, Any] | None = None) -> str:
+    for offer in merchant.get("offers", []):
+        if offer.get("status") == "active":
+            return money_safe(offer.get("title", "your current offer"))
+    if category:
+        for offer in category.get("offer_catalog", []):
+            if offer.get("type") in {"service_at_price", "membership", "free_service"}:
+                return money_safe(offer.get("title", "your current offer"))
+    return "your current offer"
+
+
+def find_digest_item(category: dict[str, Any], trigger: dict[str, Any]) -> dict[str, Any] | None:
+    item_id = (trigger.get("payload") or {}).get("top_item_id")
+    digest = category.get("digest", [])
+    if item_id:
+        for item in digest:
+            if item.get("id") == item_id:
+                return item
+    return digest[0] if digest else None
+
+
+def pct(value: Any) -> str:
+    try:
+        return f"{float(value) * 100:.0f}%"
+    except Exception:
+        return str(value)
+
+
+def cta_for(kind: str, customer: dict[str, Any] | None = None) -> str:
+    if customer:
+        return "binary"
+    if kind in {"research_digest", "cde_opportunity", "curious_ask_due"}:
+        return "open_ended"
+    return "binary"
+
+
+def compose_message(
+    category: dict[str, Any],
+    merchant: dict[str, Any],
+    trigger: dict[str, Any],
+    customer: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    gemini = gemini_compose(category, merchant, trigger, customer)
+    if gemini:
+        return gemini
+
+    kind = trigger.get("kind", "unknown")
+    identity = merchant.get("identity", {})
+    name = identity.get("name", "your business")
+    owner = first_name(merchant)
+    perf = merchant.get("performance", {})
+    peer = category.get("peer_stats", {})
+    city = identity.get("city", "")
+    locality = identity.get("locality", "")
+    offer = active_offer(merchant, category)
+    suppression_key = trigger.get("suppression_key", trigger.get("id", ""))
+    send_as = "merchant_on_behalf" if customer else "vera"
+
+    if customer:
+        body = compose_customer_message(category, merchant, trigger, customer)
+        return {
+            "body": body,
+            "cta": cta_for(kind, customer),
+            "send_as": send_as,
+            "suppression_key": suppression_key,
+            "rationale": f"Customer-scoped {kind}; uses customer relationship, consent, and merchant offer.",
+        }
+
+    if kind == "research_digest":
+        item = find_digest_item(category, trigger) or {}
+        trial = item.get("trial_n")
+        trial_part = f"{trial:,}-patient " if isinstance(trial, int) else ""
+        segment = item.get("patient_segment", "customers").replace("_", " ")
+        source = item.get("source", "latest category digest")
+        title = item.get("title", "new category update")
+        body = (
+            f"{owner}, {source} has a useful item for your {segment}: {trial_part}{title}. "
+            f"Want me to turn it into a short patient-facing chat draft?"
+        )
+    elif kind in {"regulation_change", "supply_alert"}:
+        payload = trigger.get("payload", {})
+        item = find_digest_item(category, trigger) or payload
+        title = item.get("title") or payload.get("title") or "new compliance update"
+        source = item.get("source") or payload.get("source") or "category alert"
+        body = f"{owner}, {source}: {title}. Want me to draft a 3-step checklist for {name} so your team can verify it today?"
+    elif kind in {"perf_dip", "seasonal_perf_dip"}:
+        views_delta = pct((perf.get("delta_7d") or {}).get("views_pct", 0))
+        ctr = perf.get("ctr")
+        avg_ctr = peer.get("avg_ctr")
+        ctr_part = f" CTR is {ctr:.1%} vs peer {avg_ctr:.1%}." if isinstance(ctr, (int, float)) and isinstance(avg_ctr, (int, float)) else ""
+        body = f"{owner}, this week's views are {views_delta} vs last week.{ctr_part} Don't push a generic discount; want me to draft a recovery message around {offer}?"
+    elif kind == "perf_spike":
+        views_delta = pct((perf.get("delta_7d") or {}).get("views_pct", 0))
+        body = f"{owner}, your views are up {views_delta} this week. This is the right moment to convert interest: want me to draft a short follow-up around {offer}?"
+    elif kind in {"festival_upcoming", "ipl_match_today", "category_seasonal"}:
+        payload = trigger.get("payload", {})
+        event = payload.get("event") or payload.get("title") or kind.replace("_", " ")
+        body = f"{owner}, {event} is a timely hook for {locality or city}. Want me to draft one chat campaign using {offer}, no generic percentage discount?"
+    elif kind in {"curious_ask_due", "dormant_with_vera"}:
+        body = f"Quick check, {owner}: what service are customers asking about most this week at {name}? I'll turn your answer into a Google post + 4-line chat reply."
+    elif kind in {"active_planning_intent", "milestone_reached"}:
+        body = f"{owner}, I can turn this into a ready plan for {name}: offer, audience, and 3-line outreach copy. Want the first draft now?"
+    elif kind == "competitor_opened":
+        payload = trigger.get("payload", {})
+        distance = payload.get("distance_km") or payload.get("distance")
+        distance_part = f" {distance}km away" if distance else ""
+        body = f"{owner}, a new competitor signal appeared{distance_part} near {locality or city}. Want me to compare your visible strengths and draft a response post?"
+    elif kind in {"review_theme_emerged", "gbp_unverified", "renewal_due", "winback_eligible"}:
+        signal = ", ".join(merchant.get("signals", [])[:2]) or kind.replace("_", " ")
+        body = f"{owner}, I noticed {signal} for {name}. Want me to draft the next best action using only your current business data?"
+    else:
+        body = f"{owner}, I found a fresh {kind.replace('_', ' ')} opportunity for {name}. Want me to draft one specific message using {offer}?"
+
+    return {
+        "body": compact(body),
+        "cta": cta_for(kind),
+        "send_as": send_as,
+        "suppression_key": suppression_key,
+        "rationale": f"Merchant-scoped {kind}; uses category voice, merchant state, trigger timing, and a single CTA.",
+    }
+
+
+def compose_customer_message(
+    category: dict[str, Any],
+    merchant: dict[str, Any],
+    trigger: dict[str, Any],
+    customer: dict[str, Any],
+) -> str:
+    kind = trigger.get("kind", "customer_followup")
+    customer_name = customer.get("identity", {}).get("name", "there")
+    merchant_name = merchant.get("identity", {}).get("name", "the clinic")
+    offer = active_offer(merchant, category)
+    rel = customer.get("relationship", {})
+    last_visit = rel.get("last_visit")
+    services = rel.get("services_received") or []
+    last_service = services[-1] if services else "visit"
+    pref = customer.get("preferences", {}).get("preferred_slots", "")
+
+    if kind == "recall_due":
+        body = (
+            f"Hi {customer_name}, {merchant_name} here. Your {last_service} recall is due"
+            f"{' after your last visit on ' + last_visit if last_visit else ''}. "
+            f"{offer}. Want us to hold a {pref.replace('_', ' ') or 'convenient'} slot this week?"
+        )
+    elif kind in {"customer_lapsed_hard", "trial_followup", "wedding_package_followup", "chronic_refill_due"}:
+        body = (
+            f"Hi {customer_name}, {merchant_name} here. Based on your last {last_service}, "
+            f"we have a relevant follow-up ready: {offer}. Should we help you book a {pref.replace('_', ' ') or 'convenient'} slot?"
+        )
+    else:
+        body = f"Hi {customer_name}, {merchant_name} here. We have a timely update for you: {offer}. Should we help you with this today?"
+    return compact(body)
+
+
+def is_auto_reply(message: str, history: list[dict[str, Any]]) -> bool:
+    msg = message.lower().strip()
+    canned = [
+        "thank you for contacting",
+        "automated assistant",
+        "we will get back",
+        "your message has been received",
+        "team tak pahuncha",
+    ]
+    prior_same = sum(1 for turn in history if turn.get("from") in {"merchant", "customer"} and turn.get("msg", "").strip().lower() == msg)
+    return prior_same >= 1 or any(term in msg for term in canned)
+
+
+def classify_reply(message: str, history: list[dict[str, Any]]) -> str:
+    msg = message.lower()
+    if is_auto_reply(message, history):
+        return "auto_reply"
+    if any(word in msg for word in ["yes", "ok", "go ahead", "let's do", "lets do", "send", "confirm", "please do", "haan", "chalega"]):
+        return "intent_yes"
+    if any(word in msg for word in ["not interested", "stop", "no thanks", "don't", "dont", "band", "unsubscribe"]):
+        return "no"
+    if any(word in msg for word in ["gst", "tax", "loan", "personal", "abuse", "idiot", "stupid"]):
+        return "off_topic"
+    if "?" in msg or any(word in msg for word in ["how", "what", "why", "kitna", "price", "cost"]):
+        return "question"
+    return "neutral"
+
+
+def reply_action(body: dict[str, Any]) -> dict[str, Any]:
+    conv_id = body.get("conversation_id", "")
+    message = body.get("message", "")
+    history = conversations.setdefault(conv_id, [])
+    label = classify_reply(message, history)
+    history.append({"from": body.get("from_role", "merchant"), "msg": message, "label": label, "ts": body.get("received_at")})
+
+    if label == "auto_reply":
+        auto_count = sum(1 for turn in history if turn.get("label") == "auto_reply")
+        if auto_count >= 2:
+            return {"action": "end", "rationale": "Repeated canned auto-reply detected; ending gracefully instead of wasting turns."}
+        return {
+            "action": "send",
+            "body": "Got it. If the owner or manager is available, I can show the exact opportunity in 2 lines. Should I continue?",
+            "cta": "binary",
+            "rationale": "One polite attempt after likely auto-reply; asks for human confirmation.",
+        }
+    if label == "intent_yes":
+        return {
+            "action": "send",
+            "body": "Done. I’ll prepare the draft now using the business context already shared. Next step: reply CONFIRM after reviewing it.",
+            "cta": "binary",
+            "rationale": "Explicit yes detected; switches to action instead of further qualification.",
+        }
+    if label == "no":
+        return {"action": "end", "rationale": "Merchant declined or opted out; ending the conversation."}
+    if label == "off_topic":
+        return {
+            "action": "send",
+            "body": "I can’t help with that here. I’m focused on business growth messages from the provided context. Want me to continue with that?",
+            "cta": "binary",
+            "rationale": "Keeps scope tight and redirects politely.",
+        }
+    if label == "question":
+        return {
+            "action": "send",
+            "body": "Fair question. I’ll keep it specific: one message, one offer, one next step, and no made-up claims. Want the draft?",
+            "cta": "binary",
+            "rationale": "Answers uncertainty and advances to a concrete next step.",
+        }
+    return {"action": "wait", "wait_seconds": 900, "rationale": "Reply was ambiguous; waiting rather than spamming."}
+
+
+def auth_ok(headers: Any) -> bool:
+    return headers.get("Authorization", "") == f"Bearer {TOKEN}"
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "VeraPrototypeBot/0.1"
+
+    def log_message(self, fmt: str, *args: Any) -> None:
+        print(f"{self.address_string()} - {fmt % args}")
+
+    def send_json(self, status: int, payload: dict[str, Any]) -> None:
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def send_html(self, status: int, html: str) -> None:
+        data = html.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def read_json(self) -> dict[str, Any] | None:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            raw = self.rfile.read(length)
+            return json.loads(raw.decode("utf-8") or "{}")
+        except Exception:
+            return None
+
+    def do_GET(self) -> None:
+        path = urlparse(self.path).path
+        if path == "/":
+            self.send_html(200, INDEX_HTML)
+            return
+        if path == "/demo/triggers":
+            triggers = []
+            for (_, context_id), item in contexts.items():
+                payload = item.get("payload", {})
+                if payload.get("id") == context_id:
+                    triggers.append({"id": context_id, "kind": payload.get("kind"), "merchant_id": payload.get("merchant_id")})
+            triggers.sort(key=lambda t: t["id"])
+            self.send_json(200, {"count": len(triggers), "triggers": triggers[:100]})
+            return
+        if path == "/v1/healthz":
+            counts = {"category": 0, "merchant": 0, "customer": 0, "trigger": 0}
+            for scope, _ in contexts:
+                counts[scope] = counts.get(scope, 0) + 1
+            self.send_json(200, {"status": "ok", "uptime_seconds": int(time.time() - START), "contexts_loaded": counts})
+            return
+        if path == "/v1/metadata":
+            self.send_json(
+                200,
+                {
+                    "team_name": "Prototype Reference Bot",
+                    "team_members": ["magicpin challenge prototype"],
+                    "model": "gemini-1.5-flash" if GEMINI_API_KEY else "deterministic-rule-based",
+                    "approach": "optional Gemini composer + trigger router + context-grounded fallback templates + reply classifier",
+                    "contact_email": "prototype@example.com",
+                    "version": "0.1.0",
+                    "submitted_url": PUBLIC_URL,
+                    "submitted_at": now_iso(),
+                },
+            )
+            return
+        self.send_json(404, {"error": "not_found"})
+
+    def do_POST(self) -> None:
+        path = urlparse(self.path).path
+        if path in {"/demo/tick", "/demo/reply"}:
+            body = self.read_json()
+            if body is None:
+                self.send_json(400, {"error": "invalid_json"})
+                return
+            if path == "/demo/tick":
+                self.send_json(200, {"actions": build_actions(body.get("available_triggers", [])[:20])})
+            else:
+                self.send_json(200, reply_action(body))
+            return
+
+        if not auth_ok(self.headers):
+            self.send_json(401, {"error": "unauthorized"})
+            return
+        body = self.read_json()
+        if body is None:
+            self.send_json(400, {"error": "invalid_json"})
+            return
+
+        if path == "/v1/context":
+            self.handle_context(body)
+        elif path == "/v1/tick":
+            self.handle_tick(body)
+        elif path == "/v1/reply":
+            self.send_json(200, reply_action(body))
+        elif path == "/v1/teardown":
+            contexts.clear()
+            conversations.clear()
+            sent_bodies.clear()
+            used_suppression_keys.clear()
+            self.send_json(200, {"accepted": True, "wiped_at": now_iso()})
+        else:
+            self.send_json(404, {"error": "not_found"})
+
+    def handle_context(self, body: dict[str, Any]) -> None:
+        scope = body.get("scope")
+        context_id = body.get("context_id")
+        version = body.get("version")
+        payload = body.get("payload")
+        if scope not in {"category", "merchant", "customer", "trigger"}:
+            self.send_json(400, {"accepted": False, "reason": "invalid_scope"})
+            return
+        if not context_id or not isinstance(version, int) or not isinstance(payload, dict):
+            self.send_json(400, {"accepted": False, "reason": "invalid_context_body"})
+            return
+
+        key = (scope, context_id)
+        current = contexts.get(key)
+        if current and current["version"] >= version:
+            self.send_json(409, {"accepted": False, "reason": "stale_version", "current_version": current["version"]})
+            return
+        contexts[key] = {"version": version, "payload": payload, "stored_at": now_iso()}
+        self.send_json(200, {"accepted": True, "ack_id": f"ack_{context_id}_v{version}", "stored_at": contexts[key]["stored_at"]})
+
+    def handle_tick(self, body: dict[str, Any]) -> None:
+        self.send_json(200, {"actions": build_actions(body.get("available_triggers", [])[:20])})
+
+
+def build_actions(trigger_ids: list[str]) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
+    for trigger_id in trigger_ids[:20]:
+        trigger = contexts.get(("trigger", trigger_id), {}).get("payload")
+        if not trigger:
+            continue
+        suppression_key = trigger.get("suppression_key", trigger_id)
+        if suppression_key in used_suppression_keys:
+            continue
+        merchant_id = trigger.get("merchant_id")
+        customer_id = trigger.get("customer_id")
+        merchant = contexts.get(("merchant", merchant_id), {}).get("payload") if merchant_id else None
+        if not merchant:
+            continue
+        category = contexts.get(("category", merchant.get("category_slug")), {}).get("payload")
+        if not category:
+            continue
+        customer = contexts.get(("customer", customer_id), {}).get("payload") if customer_id else None
+        composed = compose_message(category, merchant, trigger, customer)
+        conv_id = f"conv_{merchant_id}_{trigger_id}"
+        body_text = composed["body"]
+        if body_text in sent_bodies.setdefault(conv_id, set()):
+            continue
+        sent_bodies[conv_id].add(body_text)
+        used_suppression_keys.add(suppression_key)
+        actions.append(
+            {
+                "conversation_id": conv_id,
+                "merchant_id": merchant_id,
+                "customer_id": customer_id,
+                "send_as": composed["send_as"],
+                "trigger_id": trigger_id,
+                "template_name": f"vera_{trigger.get('kind', 'generic')}_v1",
+                "template_params": [],
+                "body": body_text,
+                "cta": composed["cta"],
+                "suppression_key": suppression_key,
+                "rationale": composed["rationale"],
+            }
+        )
+    return actions
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8080")))
+    parser.add_argument("--preload-dir", default="")
+    args = parser.parse_args()
+    if args.preload_dir:
+        load_preload_dir(args.preload_dir)
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
+    model = "gemini-1.5-flash" if GEMINI_API_KEY else "deterministic-rule-based"
+    print(f"Prototype bot listening on http://{args.host}:{args.port} with token {TOKEN!r}; model={model}")
+    server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()
