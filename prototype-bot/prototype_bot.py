@@ -662,6 +662,7 @@ def reply_action(body: dict[str, Any]) -> dict[str, Any]:
     category = contexts.get(("category", merchant.get("category_slug")), {}).get("payload", {}) if merchant else {}
     owner = salutation(merchant, category) if merchant else "there"
     offer = active_offer(merchant, category) if merchant else "the selected offer"
+    intent_count = sum(1 for turn in history if turn.get("label") == "intent_yes")
 
     if label == "auto_reply":
         auto_count = sum(1 for turn in history if turn.get("label") == "auto_reply")
@@ -674,6 +675,13 @@ def reply_action(body: dict[str, Any]) -> dict[str, Any]:
             "rationale": "One polite attempt after likely auto-reply; asks for human confirmation.",
         }
     if label == "intent_yes":
+        if "confirm" in message.lower() or intent_count >= 2:
+            return {
+                "action": "send",
+                "body": no_ansi(final_confirmed_draft(owner, merchant, category, trigger)),
+                "cta": "none",
+                "rationale": "Merchant confirmed the draft; produces the concrete final message instead of repeating the confirmation step.",
+            }
         kind = trigger.get("kind", "request")
         if kind == "research_digest":
             item = find_digest_item(category, trigger) or {}
@@ -714,6 +722,51 @@ def reply_action(body: dict[str, Any]) -> dict[str, Any]:
             "rationale": "Answers the question using the active trigger and merchant context before advancing.",
         }
     return {"action": "wait", "wait_seconds": 900, "rationale": "Reply was ambiguous; waiting rather than spamming."}
+
+
+def final_confirmed_draft(
+    owner: str,
+    merchant: dict[str, Any],
+    category: dict[str, Any],
+    trigger: dict[str, Any],
+) -> str:
+    kind = trigger.get("kind", "")
+    payload = trigger.get("payload", {})
+    name = merchant.get("identity", {}).get("name", "your business")
+    offer = active_offer(merchant, category)
+    if kind == "research_digest":
+        item = find_digest_item(category, trigger) or {}
+        source = item.get("source", "the latest dental digest")
+        return compact(
+            f"Draft: Hi, {name} here. {source} supports a shorter recall check for high-risk adults. "
+            f"We’re offering {offer}. Reply 1 and we’ll help find a slot."
+        )
+    if kind == "competitor_opened":
+        competitor = payload.get("competitor_name", "a nearby competitor")
+        return compact(
+            f"Draft: {competitor} opened nearby, but your edge is trust and care already visible in reviews. "
+            f"Post {offer} with one proof point today. Reply DONE after posting."
+        )
+    if kind == "renewal_due":
+        return compact(
+            f"Draft: {owner}, your {payload.get('plan', 'current')} plan renewal is Rs {payload.get('renewal_amount', '?')} "
+            f"and due in {payload.get('days_remaining', '?')} days. Want me to keep growth messages active?"
+        )
+    if kind == "ipl_match_today":
+        return compact(
+            f"Draft: Match night offer from {name}: {offer}. Order before {payload.get('match_time_iso', 'match time')} "
+            f"and we’ll prioritize prep for the rush."
+        )
+    if kind in {"supply_alert", "regulation_change"}:
+        return compact(
+            f"Draft checklist for {name}: 1) verify affected item/batches, 2) remove doubtful stock, "
+            f"3) message impacted customers only with confirmed facts."
+        )
+    customer_id = trigger.get("customer_id")
+    customer = contexts.get(("customer", customer_id), {}).get("payload") if customer_id else None
+    if customer:
+        return compose_customer_message(category, merchant, trigger, customer)
+    return compact(f"Draft: {name} update - {offer}. Reply YES and we’ll help you with the next step today.")
 
 
 def contextual_question_reply(
