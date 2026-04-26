@@ -6,7 +6,7 @@
     <title>magicpin AI Internship Challenge | Build Vera Better</title>
     <meta
       name="description"
-      content="Competition microsite for the magicpin AI Internship Challenge: build a merchant AI assistant that composes high-compulsion WhatsApp messages from four context layers."
+      content="Competition microsite for the magicpin AI Internship Challenge: build a chat-based AI assistant that composes high-compulsion business messages from four context layers."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -42,7 +42,7 @@
           <p class="eyebrow">AI internship competition</p>
           <h1 id="hero-title">Build Vera better.</h1>
           <p class="hero-copy">
-            Create a WhatsApp merchant AI assistant that can read business context, choose the right next move,
+            Create a chat-based AI assistant that can read business context, choose the right next move,
             and write messages real merchants want to answer.
           </p>
           <div class="hero-actions">
@@ -109,7 +109,7 @@
       <section id="challenge" class="section intro-section">
         <div class="section-heading">
           <p class="eyebrow">The task</p>
-          <h2>Compose the next WhatsApp message from four context layers.</h2>
+          <h2>Compose the next chat message from four context layers.</h2>
         </div>
         <div class="intro-grid">
           <article class="brief-card">
@@ -122,7 +122,7 @@
           <article class="brief-card">
             <h3>What Vera is</h3>
             <p>
-              magicpin's merchant assistant for WhatsApp. It helps businesses improve Google profiles, launch
+              magicpin's chat-based business assistant. It helps merchants improve Google profiles, launch
               campaigns, answer customer questions, and act on growth opportunities.
             </p>
           </article>
@@ -210,11 +210,11 @@
             </p>
           </article>
           <article>
-            <h3>2. Engagement</h3>
+              <h3>2. Engagement</h3>
             <p>
               Engagement means the merchant is likely to respond, not just understand. Winning messages are short,
               specific, and easy to answer. They often end with one low-friction ask: "Want me to draft it?"
-              or "Reply YES and I will set it up."
+              or "Say yes and I will set it up."
             </p>
           </article>
           <article>
@@ -258,7 +258,7 @@
             <span class="tag">High compulsion</span>
             <p>
               Dr. Meera, your CTR is 2.1% vs 3.0% South Delhi peer median. You already have Dental Cleaning @ Rs 299.
-              Want me to draft a 160-char patient WhatsApp around it?
+              Want me to draft a 160-char patient message around it?
             </p>
             <ul>
               <li>Specific benchmark</li>
@@ -279,7 +279,7 @@
           <div>
             <h3>Constraints</h3>
             <p>
-              Respect the 24h WhatsApp session window, 320-character body cap, one primary CTA, no URLs, and
+              Respect the session rules, 320-character body cap, one primary CTA, no URLs, and
               no fabricated claims.
             </p>
           </div>
@@ -308,8 +308,8 @@ test_set/     30 canonical pairs for like-for-like judging</code></pre>
           <div class="dataset-copy">
             <h3>Submission artifacts</h3>
             <p>
-              Submit <code>bot.py</code>, <code>submission.jsonl</code>, and a one-page <code>README.md</code>.
-              Optional multi-turn handling can be added in <code>conversation_handlers.py</code>.
+              Submit a public HTTPS bot URL, team metadata, and the bearer token configuration. A one-page
+              <code>README.md</code> can explain approach, model choice, and tradeoffs.
             </p>
           </div>
         </div>
@@ -414,12 +414,12 @@ examples/
           <li>
             <span>01</span>
             <h3>Build composer</h3>
-            <p>Implement deterministic message composition from structured JSON contexts.</p>
+            <p>Implement deterministic message composition from structured JSON contexts behind a hosted bot URL.</p>
           </li>
           <li>
             <span>02</span>
-            <h3>Generate 30 outputs</h3>
-            <p>Produce the canonical <code>submission.jsonl</code> for direct comparison.</p>
+            <h3>Submit bot URL</h3>
+            <p>Share the hosted URL where the judge can call <code>/v1/context</code>, <code>/v1/tick</code>, and <code>/v1/reply</code>.</p>
           </li>
           <li>
             <span>03</span>
@@ -437,10 +437,10 @@ examples/
       <section id="testing" class="section testing-section">
         <div class="section-heading wide">
           <p class="eyebrow">How the live test works</p>
-          <h2>Candidates expose a public HTTP bot. The judge drives the whole conversation.</h2>
+          <h2>Candidates submit a public URL where their chat bot can be accessed.</h2>
           <p>
-            During testing, magicpin's harness pushes context, wakes the bot on simulated time ticks,
-            plays merchant replies, and scores every message. The bot must stay stateful, fast, and grounded
+            During testing, magicpin's harness calls the submitted URL, pushes context, wakes the bot on simulated
+            time ticks, plays merchant replies, and scores every message. The bot must stay stateful, fast, and grounded
             in the contexts it has received.
           </p>
         </div>
@@ -469,7 +469,7 @@ examples/
           <article>
             <span>GET</span>
             <h3>/v1/metadata</h3>
-            <p>Team identity, members, model, approach, contact email, version, and submitted timestamp.</p>
+            <p>Team identity, members, model, approach, contact email, version, submitted URL, and timestamp.</p>
           </article>
         </div>
 
@@ -513,8 +513,8 @@ examples/
           <div>
             <h3>Deployment options</h3>
             <p>
-              Candidates can use their own cloud, submit a Docker image for the magicpin sandbox, or use a
-              notebook plus tunnel. Own cloud is best for control; sandbox is best for first-time submitters.
+              Candidates can host the bot on their own cloud, submit a Docker image for the magicpin sandbox,
+              or use a notebook plus tunnel. The submitted public URL must expose the required endpoints.
             </p>
           </div>
           <div>
@@ -529,12 +529,12 @@ examples/
 
       <section id="selection" class="section selection-section">
         <div class="section-heading wide">
-          <p class="eyebrow">Fully automated selection</p>
-          <h2>How 1,000 participants become the top 10 without human review.</h2>
+          <p class="eyebrow">Selection funnel</p>
+          <h2>How 1,000 participants are reduced to the top 10.</h2>
           <p>
             The selection process is staged. Cheap contract checks run first, then structured message scoring,
             then adaptive tests, then deep replay. Every decision is logged with evidence so the final ranking is
-            auditable instead of subjective.
+            auditable and consistent.
           </p>
         </div>
 
@@ -597,7 +597,7 @@ examples/
         <div class="automation-note">
           <h3>Judge design principle</h3>
           <p>
-            The LLM judge does not directly “pick winners.” It scores each message and conversation against
+            The judge does not directly “pick winners.” It scores each message and conversation against
             structured dimensions with cited evidence. Ranking happens numerically from those logged scores.
           </p>
         </div>
