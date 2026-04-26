@@ -4,8 +4,8 @@ function updateHeader() {
   if (!topbar) return;
   const scrolled = window.scrollY > 24;
   topbar.style.background = scrolled
-    ? "rgba(13, 18, 22, 0.9)"
-    : "rgba(13, 18, 22, 0.72)";
+    ? "rgba(247, 245, 240, 0.98)"
+    : "rgba(247, 245, 240, 0.92)";
 }
 
 window.addEventListener("scroll", updateHeader, { passive: true });
